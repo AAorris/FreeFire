@@ -154,3 +154,8 @@ $RECYCLE.BIN/
 
 # Mac desktop service store files
 .DS_Store
+/Client_MainLog.txt
+/Client_NetLog.txt
+/FreeFire_Debug.exe
+/FreeFire_Debug.exe.lastcodeanalysissucceeded
+/Roboto Licence.txt
