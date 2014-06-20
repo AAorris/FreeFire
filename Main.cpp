@@ -223,6 +223,26 @@ int runServer()
 	SDL_Thread* net = SDL_CreateThread(thread_net, "NetServerFF", (void*)RUN_TYPE::SERVER);
 	int netstatus;
 
+	std::string map[4][4];
+	map[0][0] = "tree";
+	map[0][1] = "tree";
+	map[0][2] = "";
+	map[0][3] = "pine";
+	map[1][0] = "tree";
+	map[1][1]="";
+	map[1][2]="";
+	map[1][3]="";
+	map[2][0]="";
+	map[2][1]="";
+	map[2][2]="";
+	map[2][3]="";
+	map[3][0]="";
+	map[3][1]="";
+	map[3][2]="";
+	map[3][3]="tree";
+	int mapx = 1;
+	int mapy = 1;
+
 	std::ofstream log;
 	log.open("Server_MainLog.txt");
 	log << "Opening Server log...\n";
@@ -310,21 +330,27 @@ int thread_net(void* netType)
 		log.open("Server_NetLog.txt");
 		log << "Opening server log...\n";
 
-		UDPsocket serversocket;
-		serversocket = SDLNet_UDP_Open(PORT);
-		UDPServer server = UDPServer(serversocket);
+		//UDPsocket serversocket;
+		//serversocket = SDLNet_UDP_Open(PORT);
+		UDPServer server = UDPServer(host,PORT,-1);
+		server.init();
+
 		while (running)
 		{
-			log << "Checking for packets";
+			//log << "Checking for packets";
 			if (server.getPacket() > 0)
 			{
 				int signature = 0;
 				memcpy(&signature, (char*)server.packet->data, sizeof(int));
 				log << "Got packet with signature " << signature << std::endl;
+				if (signature == PTYPE_CLIENTSHAKE) {
+					log << "Registering a client : " << server.packet->address.host << ":" << server.packet->address.port << std::endl;
+				}
 			}
-			SDL_Delay(1000);
+			SDL_Delay(100);
 		}
-		SDLNet_UDP_Close(serversocket);
+		SDLNet_UDP_Close(server.socket);
+		//SDLNet_UDP_Close(serversocket);
 	}
 	/*=============================================================
 	===============================================================
@@ -337,12 +363,23 @@ int thread_net(void* netType)
 		log << "Opening client log...\n";
 		UDPClient client = UDPClient(host, 3991, -1);
 		client.init();
+
+		bool shook = false;
+
 		while (running)
 		{
-			FFPacketPos generatedItem = RandomPacketPos();
-			FFPacketBuild(client, &generatedItem);
+			//get the server to say hi!
+			if (!shook) {
+				FFPShake getShake = FFPacketCreate<FFPShake>();
+
+				FFPacketBuild(client, &getShake);
+				client.send();
+				log << "Sending handshake...\n";
+			}
+			FFPacketPos pos = RandomPacketPos();
+			FFPacketBuild(client, &pos);
 			client.send();
-			SDL_Delay(1000);
+			SDL_Delay(100);
 		}
 	}
 	/*=============================================================
