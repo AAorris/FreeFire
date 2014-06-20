@@ -14,13 +14,14 @@ void GFX::init(std::string _name, int _w, int _h, bool borderless)
 	w = _w;
 	h = _h;
 	if(borderless) flags |= SDL_WINDOW_BORDERLESS;
-	win = SDL_CreateWindow(_name.c_str(),SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,_w,_h,flags);
+	win = SDL_CreateWindow(_name.c_str(),SDL_WINDOWPOS_CENTERED,SDL_WINDOWPOS_CENTERED,_w,_h,flags|SDL_WINDOW_HIDDEN);
 	ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED|SDL_RENDERER_TARGETTEXTURE);
 	std::string error = SDL_GetError();
 	loadFont("default", "font/Roboto-Regular.ttf", 24);
 	loadFont("robotoblack12", "font/Roboto-Black.ttf", 12);
 	font = fonts.at("default");
 	SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
+	SDL_ShowWindow(win);
 }
 
 void GFX::cleanup()
@@ -50,7 +51,7 @@ void GFX::fontWrite(std::string font, std::string text, int x, int y)
 
 void GFX::loadAsset(std::string key, std::string path)
 {
-	SDL_Texture* tex = SDL_CreateTextureFromSurface(
+	SDL_Texture* tex = SDL_CreateTextureFromSurface(	
 							ren,
 							IMG_Load(path.c_str())
 						);
