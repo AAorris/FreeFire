@@ -40,9 +40,6 @@ int runServer();
 int runModerator();
 int runTeamBoard();
 
-int runServer(){ return 0; }
-int runModerator(){ return 0; }
-int runTeamBoard(){ return 0; }
 
 int main(int argc, char* argv[])
 {
@@ -215,6 +212,82 @@ int runClient()
 		SDL_Delay(16);
 	}
 	client.cleanup();
+
+	SDL_WaitThread(net, &netstatus);
+	return 1;
+}
+
+
+int runServer()
+{
+	SDL_Thread* net = SDL_CreateThread(thread_net, "NetServerFF", (void*)RUN_TYPE::SERVER);
+	int netstatus;
+
+	std::ofstream log;
+	log.open("Server_MainLog.txt");
+	log << "Opening Server log...\n";
+	GFX server = GFX();
+	server.init("FreeFire Server", 1024, 768);
+	while (running)
+	{
+		server.fill(255, 255, 255, 255);
+		server.write("Hello, Server!", 10, 10);
+		server.show();
+		log << "Handling events...\n";
+		handleEvents(running);
+		SDL_Delay(16);
+	}
+	server.cleanup();
+
+	SDL_WaitThread(net, &netstatus);
+	return 1; 
+}
+
+int runModerator()
+{
+	SDL_Thread* net = SDL_CreateThread(thread_net, "NetModFF", (void*)RUN_TYPE::MODERATOR);
+	int netstatus;
+
+	std::ofstream log;
+	log.open("Moderator_MainLog.txt");
+	log << "Opening Server log...\n";
+	GFX mod = GFX();
+	mod.init("FreeFire Server", 1024, 768);
+	while (running)
+	{
+		mod.fill(255, 255, 255, 255);
+		mod.write("Hello, Moderator!", 10, 10);
+		mod.show();
+		log << "Handling events...\n";
+		handleEvents(running);
+		SDL_Delay(16);
+	}
+	mod.cleanup();
+
+	SDL_WaitThread(net, &netstatus);
+	return 1;
+}
+
+int runTeamBoard()
+{
+	SDL_Thread* net = SDL_CreateThread(thread_net, "NetBoardFF", (void*)RUN_TYPE::TEAM_BOARD);
+	int netstatus;
+
+	std::ofstream log;
+	log.open("Teamboard_MainLog.txt");
+	log << "Opening Team Board log...\n";
+	GFX server = GFX();
+	server.init("FreeFire Team Board", 1024, 768, true);
+	while (running)
+	{
+		server.fill(255, 255, 255, 255);
+		server.write("Hello, Team board!", 10, 10);
+		server.show();
+		log << "Handling events...\n";
+		handleEvents(running);
+		SDL_Delay(16);
+	}
+	server.cleanup();
 
 	SDL_WaitThread(net, &netstatus);
 	return 1;
