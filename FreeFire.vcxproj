@@ -99,10 +99,12 @@
     <ClInclude Include="ClientSocket.h" />
     <ClInclude Include="FF_Packets.h" />
     <ClInclude Include="GFX.h" />
+    <ClInclude Include="mapStorage.h" />
     <ClInclude Include="pos.h" />
     <ClInclude Include="SDLButton.h" />
     <ClInclude Include="sprite.h" />
     <ClInclude Include="StaticSprite.h" />
+    <ClInclude Include="TextureChunk.h" />
     <ClInclude Include="UDPClient.h" />
     <ClInclude Include="UDPServer.h" />
   </ItemGroup>

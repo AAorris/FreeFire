@@ -4,6 +4,20 @@
 #define PTYPE_TIMESTAMP 1
 #define PTYPE_MESSAGE 2
 #define PTYPE_POS 3
+#define PTYPE_CLIENTSHAKE 4
+
+enum PTYPE
+{
+	PNONE,
+	PTIME,
+	PMESG,
+	PPOS,
+	PSHAKE,
+};
+
+#define PBUILD(x) template<> void FFPacketBuild<x>(UDPClient& client, x* obj)
+#define PLOAD(x) template<> void FFPacketLoad<x>(x* obj, UDPServer& server)
+#define PCREATE(x) template<> x FFPacketCreate<x>()
 
 /*=============================================================
 ===============================================================
@@ -20,6 +34,50 @@ template <typename T>
 void FFPacketLoad(T* obj, UDPServer& server) {
 	//specialize me to read server's packet into object
 	throw 0;
+}
+template <typename T>
+T FFPacketCreate()
+{
+	//specialize me to create an object from scratch (initialization only)
+	throw 0;
+}
+/*=============================================================
+===============================================================
+			Set up a handshake with a remote peer
+===============================================================
+==============================================================*/
+
+enum SHAKETYPE
+{
+	ANONYMOUS,
+};
+
+struct FFPShake
+{
+	int signature;
+	int type;
+};
+
+PCREATE(FFPShake)
+{
+	FFPShake obj = FFPShake();
+	obj.signature = PTYPE::PSHAKE;
+	obj.type = SHAKETYPE::ANONYMOUS;
+	return obj;
+}
+
+PBUILD(FFPShake) // client, obj
+{
+	client.put(obj->signature);
+	client.put(obj->type);
+}
+
+PLOAD(FFPShake) // obj, server
+{
+	server.pos = 0;
+	obj->signature = server.get<int>();
+	obj->type = server.get<int>();
+	server.pos = 0;
 }
 
 /*=============================================================
