@@ -91,6 +91,7 @@
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="pos.cpp" />
     <ClCompile Include="SDLButton.cpp" />
+    <ClCompile Include="SimulationManager.cpp" />
     <ClCompile Include="sprite.cpp" />
     <ClCompile Include="UDPClient.cpp" />
     <ClCompile Include="UDPServer.cpp" />
@@ -99,9 +100,11 @@
     <ClInclude Include="ClientSocket.h" />
     <ClInclude Include="FF_Packets.h" />
     <ClInclude Include="GFX.h" />
+    <ClInclude Include="GUIContainer.h" />
     <ClInclude Include="mapStorage.h" />
     <ClInclude Include="pos.h" />
     <ClInclude Include="SDLButton.h" />
+    <ClInclude Include="SimulationManager.h" />
     <ClInclude Include="sprite.h" />
     <ClInclude Include="StaticSprite.h" />
     <ClInclude Include="TextureChunk.h" />

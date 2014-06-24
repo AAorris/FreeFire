@@ -40,6 +40,7 @@ void UDPServer::zero()
 	pos = 0;
 	hostname = "127.0.0.1";
 }
+
 /**
 	Initialize the client :
 	Allocate a packet structure
@@ -58,6 +59,15 @@ void UDPServer::init()
 	packet->address.port = ipserver.port;
 }
 
+/**Fire the packet*/
+void UDPServer::send(const IPaddress& ip)
+{
+	packet->len = pos + 1;
+	packet->address = ip;
+	SDLNet_UDP_Send(socket, channel, packet);
+	clear();
+}
+
 int UDPServer::getPacket()
 {
 	return SDLNet_UDP_Recv(socket, packet);
@@ -66,9 +76,21 @@ int UDPServer::getPacket()
 /**Clear the data in the packet*/
 void UDPServer::clear()
 {
-	memset(packet->data,0,packetSize);
+	SDLNet_FreePacket(packet);
+	packet = SDLNet_AllocPacket(packetSize);
+	//memset(packet->data,0,packetSize);
 	packet->channel = channel;
 	packet->len = 0;
 	packet->status = 0;
 	pos=0;
+}
+
+/**write a string into the packet*/
+void UDPServer::putString(std::string s)
+{
+	const char* str = s.c_str();
+	char* dest = (char*)calloc(sizeof(char), strlen(str)+1);
+	//strcpy_s(dest, strlen(str)+1, str);
+	strcpy_s((char*)(packet->data + pos), strlen(str)+1, str);
+	pos += s.length();
 }

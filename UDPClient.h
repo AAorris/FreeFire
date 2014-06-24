@@ -37,4 +37,18 @@ public:
 		pos+=sizeof(item);
 	}
 
+	template <typename T>
+	T get()
+	{
+		T result = *(&packet->data[pos]);
+		pos += sizeof(T);
+		return result;
+	}
+
+	template<> std::string get<std::string>()
+	{
+		std::string result = std::string((char*)&(packet->data[pos]));
+		pos += sizeof(char)*result.size();
+	}
+
 };
