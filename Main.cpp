@@ -17,6 +17,7 @@
 
 #include "UDPClient.h"
 #include "UDPServer.h"
+#include "SimulationManager.h"
 
 #include "FF_Packets.h"
 #include "GFX.h"
@@ -40,6 +41,8 @@ int runServer();
 int runModerator();
 int runTeamBoard();
 
+SDL_mutex* mutex_sim;
+SimulationManager sim;
 
 int main(int argc, char* argv[])
 {
@@ -62,7 +65,8 @@ int main(int argc, char* argv[])
 	SDLNet_Init();
 	int treturn = 0;
 	GFX menu1;
-	menu1.init("Free Fire Menu",600,300,true);
+	menu1.init("Free Fire Menu", 600, 300, true);
+	mutex_sim = SDL_CreateMutex();
 
 	/*=============================================================
 	===============================================================
@@ -201,7 +205,7 @@ int runClient()
 	log.open("Client_MainLog.txt");
 	log << "Opening Client log...\n";
 	GFX client = GFX();
-	client.init("FreeFire Client", 1024, 768);
+	client.init("FreeFire Client", 300, 100);
 	while (running)
 	{
 		client.fill(255, 255, 255, 255);
@@ -222,6 +226,9 @@ int runServer()
 {
 	SDL_Thread* net = SDL_CreateThread(thread_net, "NetServerFF", (void*)RUN_TYPE::SERVER);
 	int netstatus;
+
+	SimulationManager serverSim = SimulationManager();
+	//SDL_LockMutex(SimulationManager::mutex);
 
 	std::string map[4][4];
 	map[0][0] = "tree";
@@ -247,13 +254,19 @@ int runServer()
 	log.open("Server_MainLog.txt");
 	log << "Opening Server log...\n";
 	GFX server = GFX();
-	server.init("FreeFire Server", 1024, 768);
+	server.init("FreeFire Server", 300, 100);
 	while (running)
 	{
 		server.fill(255, 255, 255, 255);
 		server.write("Hello, Server!", 10, 10);
 		server.show();
-		log << "Handling events...\n";
+
+		if (SDL_TryLockMutex(mutex_sim) == 0) {
+			log << "In mutex\n";
+			SDL_UnlockMutex(mutex_sim);
+		}
+
+		//log << "Handling events...\n";
 		handleEvents(running);
 		SDL_Delay(16);
 	}
@@ -337,14 +350,77 @@ int thread_net(void* netType)
 
 		while (running)
 		{
-			//log << "Checking for packets";
+			//try locking the simulation mutex for laughs
+
+			//poor simulation module.
+			//SDL_TryLockMutex(mutex_sim);
+
+			/*
+			CHECK FOR INCOMING PACKETS
+			*/
 			if (server.getPacket() > 0)
 			{
 				int signature = 0;
 				memcpy(&signature, (char*)server.packet->data, sizeof(int));
 				log << "Got packet with signature " << signature << std::endl;
-				if (signature == PTYPE_CLIENTSHAKE) {
-					log << "Registering a client : " << server.packet->address.host << ":" << server.packet->address.port << std::endl;
+				/*
+				Handle incoming handshakes from new clients
+				*/
+				if (signature == PTYPE::PSHAKE) {
+					FFPShake incomingShake;
+					PLoadShake<UDPServer>(&incomingShake, server);
+					//PacketBuildServer(server, &incomingShake);
+
+					log << "...A hand shake, with type : " << incomingShake.type << "\n";
+
+					if (incomingShake.type == ANONYMOUS)
+					{
+						//Some unknown client is trying to shake hands
+						//Send an acceptance of course; you're a nice guy after all
+						//	- after you start shaking their hand, you wait for them
+						//	- to stop shaking your hand...
+						//	- you can stop now...
+						if (server.clients.find(server.packet->address) == server.clients.end()) {
+							if (server.shaking.find(server.packet->address) == server.shaking.end())
+							{
+								log << "Oh look! Someone is trying to shake my hand. I'll accept.\n";
+								server.shaking.insert(server.packet->address);
+							}
+							else
+							{
+								log << "Uh, you can stop shaking my hand now...\n";
+							}
+							FFPShake returnShake = FFPacketCreate<FFPShake>();
+							returnShake.type = SHAKETYPE::ACCEPT;
+							FFPacketBuildServer<FFPShake>(server, &returnShake);
+							server.send(server.packet->address);
+						}
+					}
+
+					else if (incomingShake.type == SHAKETYPE::ACCEPT)
+					{
+						log << "This hand shake is an acceptance!\n";
+						//client acknowledged our shake response
+						//client is done shaking our hand
+						//finally add client to client list
+						if (server.shaking.find(server.packet->address) != server.shaking.end())
+						{
+							log << "Done shaking " << server.packet->address.host << ":" << server.packet->address.port << "'s hand. Now we've met.\n";
+							server.clients.insert(server.packet->address);
+							server.shaking.erase(server.packet->address);
+						}
+					}
+				}
+			}
+			if (server.clients.size() > 0)
+			{
+				/*
+				Send updates to relevant existing clients
+				*/
+				for (auto i = server.clients.begin(); i != server.clients.end(); i++)
+				{
+					int treeTile = 1;
+					sendTileUpdate(1, 1, treeTile,server,*i);
 				}
 			}
 			SDL_Delay(100);
@@ -354,7 +430,7 @@ int thread_net(void* netType)
 	}
 	/*=============================================================
 	===============================================================
-	Client
+								Client
 	===============================================================
 	==============================================================*/
 	else if (runtype == CLIENT)
@@ -370,15 +446,50 @@ int thread_net(void* netType)
 		{
 			//get the server to say hi!
 			if (!shook) {
-				FFPShake getShake = FFPacketCreate<FFPShake>();
-
-				FFPacketBuild(client, &getShake);
+				FFPShake outgoingShake = FFPacketCreate<FFPShake>();
+				FFPacketBuild(client, &outgoingShake);
 				client.send();
-				log << "Sending handshake...\n";
+				log << "Please shake my hand Mr. Server!\n";
 			}
-			FFPacketPos pos = RandomPacketPos();
-			FFPacketBuild(client, &pos);
-			client.send();
+			//check if the server has sent us any information
+			while (SDLNet_UDP_Recv(client.socket, client.packet))
+			{
+				int signature = 0;
+				memcpy(&signature, (char*)client.packet->data, sizeof(int));
+				log << "Got packet with signature " << signature << std::endl;
+				if (signature == PTILE)
+				{
+					log << "\tIt's a tile update!\n";
+					if (SDL_TryLockMutex(mutex_sim)==0)
+					{
+						FFPTileUpdate newTile = getTileUpdate(client);
+						log << "\tnew tile : (" << newTile.x << ", " << newTile.y << ", " << newTile.tileID << ")\n";
+						sim.updateTile(pos(newTile.x,newTile.y),newTile.tileID);
+						SDL_UnlockMutex(mutex_sim);
+					}
+					else {
+						log << "Couldn't lock the mutex! Waiting till later.\n";
+					}
+				}
+				if (!shook && signature == PSHAKE)
+				{
+					FFPShake incomingShake;
+					PLoadShake(&incomingShake, client);
+
+					if (incomingShake.type == SHAKETYPE::ACCEPT)
+					{
+						shook = true;
+						log << "Mr. Server shook my hand! Stopping shaking.\n";
+						FFPShake outgoingShake = FFPacketCreate<FFPShake>();
+						outgoingShake.type = SHAKETYPE::ACCEPT;
+						FFPacketBuild<FFPShake>(client, &outgoingShake);
+						client.send();
+					}
+				}
+			}
+			//FFPacketPos pos = RandomPacketPos();
+			//FFPacketBuild(client, &pos);
+			//client.send();
 			SDL_Delay(100);
 		}
 	}
