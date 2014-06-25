@@ -55,6 +55,15 @@ void UDPClient::send()
 	clear();
 }
 
+/**Fire the packet*/
+void UDPClient::send(const IPaddress& ip)
+{
+	packet->len = pos + 1;
+	packet->address = ip;
+	SDLNet_UDP_Send(socket, channel, packet);
+	clear();
+}
+
 /**Clear the data in the packet*/
 void UDPClient::clear()
 {
