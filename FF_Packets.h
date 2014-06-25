@@ -52,13 +52,14 @@ T FFPacketCreate()
 	//specialize me to create an object from scratch (initialization only)
 	throw 0;
 }
-
 /*=============================================================
 ===============================================================
 			Hold a table for referencing assets
 ===============================================================
 ==============================================================*/
 
+
+/*
 enum ASSETSTATUS {
 	STATUS_NONE,
 	STATUS_LOADING,
@@ -89,14 +90,65 @@ template<> void FFPacketBuildServer<FFPAsset>(UDPServer& server, FFPAsset* obj)
 	server.putString(obj->path);
 	server.pos = 0;
 }
+*/
 
-
-void sendAssetRequest(const std::string& assetPath, UDPServer& server, const IPaddress& dest)
+/*void sendAssetRequest(const std::string& assetPath, UDPServer& server, const IPaddress& dest)
 {
 	FFPAsset req = makeAssetRequest(assetPath);
 	FFPacketBuildServer<FFPAsset>(server, &req);
-	//server.packet->address = dest;
 	server.send(dest);
+}*/
+enum ASSETCONTEXT
+{
+	ASSET_ERROR,
+	ASSET_REQUEST,
+	ASSET_REPLY
+};
+
+struct FFPAssetMessage
+{
+	int signature;
+	int context;
+	int assetID;
+	std::string assetName;
+};
+
+template <typename M = UDPClient>
+void sendAssetRequest(const int& id, M& manager, const IPaddress& dest)
+{
+	manager.pos = 0;
+	manager.put<int>(PASSET);
+	manager.put<int>(ASSET_REQUEST);
+	manager.put<int>(id);
+	manager.put<std::string>("");
+	manager.send(dest);
+}
+
+//something's going awry with the string value... is it happening here?
+//perhaps putting an std::string is weird.
+template <typename M = UDPServer>
+void sendAssetResponse(const FFPAssetMessage& assetRequest, const std::string& value, M& manager, const IPaddress& dest)
+{
+	manager.pos = 0;
+	manager.put<int>(PASSET);
+	manager.put<int>(ASSET_REPLY);
+	manager.put<int>(assetRequest.assetID);
+	manager.put<char*>(value);
+	manager.send(dest);
+}
+
+template <typename M = UDPClient>
+FFPAssetMessage getAssetResponse(M& manager)
+{
+	FFPAssetMessage msg;
+	msg.signature = manager.get<int>();
+	msg.context = manager.get<int>();
+	msg.assetID = manager.get<int>();
+	msg.assetName = manager.get<std::string>();
+	if (msg.assetName != "")
+		msg.assetName = msg.assetName.substr(4, msg.assetName.size());
+	manager.clear();
+	return msg;
 }
 
 /*=============================================================
@@ -111,15 +163,17 @@ struct FFPTileUpdate
 	int x;
 	int y;
 	int tileID;
+	std::string group;
 };
 
 template <typename M = UDPServer>
-void sendTileUpdate(const int& x, const int& y, const int& assetID, M& manager, const IPaddress& dest)
+void sendTileUpdate(const std::string& group, const int& x, const int& y, const int& assetID, M& manager, const IPaddress& dest)
 {
 	manager.put<int>(PTILE);
 	manager.put<int>(x);
 	manager.put<int>(y);
 	manager.put<int>(assetID);
+	manager.putString(group);
 	manager.send(dest);
 }
 
@@ -131,6 +185,7 @@ FFPTileUpdate getTileUpdate(M& manager)
 	data.x = manager.get<int>();
 	data.y = manager.get<int>();
 	data.tileID = manager.get<int>();
+	data.group = manager.get<std::string>();
 	manager.clear();
 	return data;
 }

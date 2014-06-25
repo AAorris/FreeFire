@@ -91,6 +91,7 @@ void UDPServer::putString(std::string s)
 	const char* str = s.c_str();
 	char* dest = (char*)calloc(sizeof(char), strlen(str)+1);
 	//strcpy_s(dest, strlen(str)+1, str);
+	//could this be 4 bytes off?
 	strcpy_s((char*)(packet->data + pos), strlen(str)+1, str);
 	pos += s.length();
 }

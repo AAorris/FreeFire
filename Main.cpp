@@ -7,6 +7,7 @@
 #include <sstream>
 #include <vector>
 #include <fstream>
+#include <queue>
 
 #include <SDL2\SDL.h>
 #include <SDL2\SDL_image.h>
@@ -43,6 +44,8 @@ int runTeamBoard();
 
 SDL_mutex* mutex_sim;
 SimulationManager sim;
+std::queue<FFPTileUpdate> tileQueue;
+std::queue<std::string> newAssets;
 
 int main(int argc, char* argv[])
 {
@@ -67,6 +70,7 @@ int main(int argc, char* argv[])
 	GFX menu1;
 	menu1.init("Free Fire Menu", 600, 300, true);
 	mutex_sim = SDL_CreateMutex();
+	tileQueue = std::queue<FFPTileUpdate>();
 
 	/*=============================================================
 	===============================================================
@@ -204,18 +208,69 @@ int runClient()
 	std::ofstream log;
 	log.open("Client_MainLog.txt");
 	log << "Opening Client log...\n";
-	GFX client = GFX();
-	client.init("FreeFire Client", 300, 100);
+	GFX gfx = GFX();
+	gfx.init("FreeFire Client", 300, 300);
 	while (running)
 	{
-		client.fill(255, 255, 255, 255);
-		client.write("Hello, Client!", 10, 10);
-		client.show();
+		gfx.fill(255, 255, 255, 255);
+		gfx.write("Hello, Client!", 10, 10);
+
+		if (newAssets.empty() == false)
+		{
+			if (SDL_TryLockMutex(mutex_sim) == 0) {
+				while (newAssets.empty() == false) {
+					
+					std::string path = newAssets.front();
+					log << "Loading path: " << path << "...";
+					if (gfx.loadAsset(newAssets.front()))
+					{
+						log << " success.\n";
+					}
+					else
+						log << " failure! " << IMG_GetError() << "\n";
+					
+					
+					newAssets.pop();
+				}
+				SDL_UnlockMutex(mutex_sim);
+			}
+		}
+
+		for (int x = 0; x < 10; x++)
+		{
+			for (int y = 0; y < 10; y++)
+			{
+				int value = sim.getTile("map", pos(x, y));
+				if (value != -1)
+				{
+					SDL_Rect rect = { x * 10, y * 10, 10, 10 };
+					if (sim.hasLookup(value))
+					{
+						std::string key = sim.path(value);
+						if (key != "")
+						{
+							if (gfx.textures.find(key) != gfx.textures.end())
+							{
+								SDL_RenderCopy(gfx.ren, gfx.textures.at(key), NULL, &rect);
+							}
+							else
+							{
+								SDL_SetRenderDrawColor(gfx.ren, 255, 0, 0, 255);
+								SDL_RenderDrawRect(gfx.ren, &rect);
+								newAssets.push(key);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		gfx.show();
 		log << "Handling events...\n";
 		handleEvents(running);
 		SDL_Delay(16);
 	}
-	client.cleanup();
+	gfx.cleanup();
 
 	SDL_WaitThread(net, &netstatus);
 	return 1;
@@ -224,53 +279,46 @@ int runClient()
 
 int runServer()
 {
-	SDL_Thread* net = SDL_CreateThread(thread_net, "NetServerFF", (void*)RUN_TYPE::SERVER);
-	int netstatus;
-
-	SimulationManager serverSim = SimulationManager();
-	//SDL_LockMutex(SimulationManager::mutex);
-
-	std::string map[4][4];
-	map[0][0] = "tree";
-	map[0][1] = "tree";
-	map[0][2] = "";
-	map[0][3] = "pine";
-	map[1][0] = "tree";
-	map[1][1]="";
-	map[1][2]="";
-	map[1][3]="";
-	map[2][0]="";
-	map[2][1]="";
-	map[2][2]="";
-	map[2][3]="";
-	map[3][0]="";
-	map[3][1]="";
-	map[3][2]="";
-	map[3][3]="tree";
-	int mapx = 1;
-	int mapy = 1;
 
 	std::ofstream log;
 	log.open("Server_MainLog.txt");
 	log << "Opening Server log...\n";
-	GFX server = GFX();
-	server.init("FreeFire Server", 300, 100);
+	GFX gfx = GFX();
+	gfx.init("FreeFire Server", 300, 300);
+
+	SimulationManager serverSim = SimulationManager();
+
+	//load some hard coded assets for testing purposes
+	gfx.loadAsset("tree.png");
+	sim.lookup.insert(std::make_pair(0, "tree.png"));
+	gfx.loadAsset("pineTree.png");
+	sim.lookup.insert(std::make_pair(1, "pineTree.png")); 
+	gfx.loadAsset("fire_breaker.png");
+	sim.lookup.insert(std::make_pair(2, "fire_breaker.png"));
+	gfx.loadAsset("fire_fighter.png");
+	sim.lookup.insert(std::make_pair(3, "fire_fighter.png"));
+	gfx.loadAsset("fire.png");
+	sim.lookup.insert(std::make_pair(4, "fire.png"));
+
+
+	SDL_Thread* net = SDL_CreateThread(thread_net, "NetServerFF", (void*)RUN_TYPE::SERVER);
+	int netstatus;
+
 	while (running)
 	{
-		server.fill(255, 255, 255, 255);
-		server.write("Hello, Server!", 10, 10);
-		server.show();
+		gfx.fill(255, 255, 255, 255);
+		gfx.write("Hello, Server!", 10, 10);
+		gfx.show();
 
 		if (SDL_TryLockMutex(mutex_sim) == 0) {
-			log << "In mutex\n";
+			//log << "In mutex\n";
 			SDL_UnlockMutex(mutex_sim);
 		}
-
 		//log << "Handling events...\n";
 		handleEvents(running);
 		SDL_Delay(16);
 	}
-	server.cleanup();
+	gfx.cleanup();
 
 	SDL_WaitThread(net, &netstatus);
 	return 1; 
@@ -366,6 +414,22 @@ int thread_net(void* netType)
 				/*
 				Handle incoming handshakes from new clients
 				*/
+				if (signature == PASSET)
+				{
+					FFPAssetMessage msg = getAssetResponse(server);
+					if (msg.context == ASSET_REQUEST)
+					{
+						if (sim.lookup.count(msg.assetID) != 0)
+						{
+							log << "Some client is asking for an asset they don't recognize, I guess I'll help them out.\n";
+							sendAssetResponse(msg, sim.lookup.at(msg.assetID), server, server.packet->address);
+						}
+						else
+						{
+							log << "Client is asking for an asset I don't have!(" << msg.assetID << ")\n";
+						}
+					}
+				}
 				if (signature == PTYPE::PSHAKE) {
 					FFPShake incomingShake;
 					PLoadShake<UDPServer>(&incomingShake, server);
@@ -386,7 +450,7 @@ int thread_net(void* netType)
 								log << "Oh look! Someone is trying to shake my hand. I'll accept.\n";
 								server.shaking.insert(server.packet->address);
 							}
-							else
+							else // this address is already on the shaking list, but not the client list.
 							{
 								log << "Uh, you can stop shaking my hand now...\n";
 							}
@@ -419,8 +483,8 @@ int thread_net(void* netType)
 				*/
 				for (auto i = server.clients.begin(); i != server.clients.end(); i++)
 				{
-					int treeTile = 1;
-					sendTileUpdate(1, 1, treeTile,server,*i);
+					int treeTile = rand()%4;
+					sendTileUpdate("map", rand()%10, rand()%10, treeTile,server,*i);
 				}
 			}
 			SDL_Delay(100);
@@ -457,18 +521,43 @@ int thread_net(void* netType)
 				int signature = 0;
 				memcpy(&signature, (char*)client.packet->data, sizeof(int));
 				log << "Got packet with signature " << signature << std::endl;
+
+				if (signature == PASSET)
+				{
+					FFPAssetMessage msg = getAssetResponse(client);
+					if (msg.context == ASSETCONTEXT::ASSET_REPLY) {
+						log << "Received asset reply : (" << msg.assetID << "," << msg.assetName << ")\n";
+						sim.lookup.insert(std::make_pair(msg.assetID, msg.assetName));
+					}
+				}
 				if (signature == PTILE)
 				{
 					log << "\tIt's a tile update!\n";
+					FFPTileUpdate newTile = getTileUpdate(client);
 					if (SDL_TryLockMutex(mutex_sim)==0)
 					{
-						FFPTileUpdate newTile = getTileUpdate(client);
 						log << "\tnew tile : (" << newTile.x << ", " << newTile.y << ", " << newTile.tileID << ")\n";
-						sim.updateTile(pos(newTile.x,newTile.y),newTile.tileID);
+						if (sim.hasLookup(newTile.tileID) == false)
+						{
+							log << "I don't know the image for this tile id. Asking Mr. Server!\n";
+							sendAssetRequest(newTile.tileID, client, client.ipserver);
+						}
+						sim.updateTile(newTile.group,pos(newTile.x,newTile.y),newTile.tileID);
+						while (tileQueue.empty() == false)
+						{
+							newTile = tileQueue.front();
+							sim.updateTile(newTile.group, pos(newTile.x, newTile.y), newTile.tileID);
+							if (sim.hasLookup(newTile.tileID) == false)
+							{
+								sendAssetRequest(newTile.tileID, client, client.ipserver);
+							}
+							tileQueue.pop();
+						}
 						SDL_UnlockMutex(mutex_sim);
 					}
 					else {
-						log << "Couldn't lock the mutex! Waiting till later.\n";
+						tileQueue.push(newTile);
+						log << "Couldn't lock the mutex! Adding update to queue.\n";
 					}
 				}
 				if (!shook && signature == PSHAKE)
@@ -495,7 +584,7 @@ int thread_net(void* netType)
 	}
 	/*=============================================================
 	===============================================================
-	Team Board
+							Team Board
 	===============================================================
 	==============================================================*/
 	else if (runtype == TEAM_BOARD)
@@ -510,55 +599,3 @@ int thread_net(void* netType)
 }
 
 int thread_sim(void* data){return 0;}
-
-/**
-
-UDPsocket udps;
-Uint32 SERVERPORT = 3991;
-
-udps = SDLNet_UDP_Open(SERVERPORT);
-
-if (type == CLIENT)
-{
-UDPClient client = UDPClient("2620:22:4000:31a:bdf5:993b:183b:d4c5", 3991, -1);
-client.init();
-int t=0;
-while (running)
-{
-FFPacketPos generatedItem = RandomPacketPos();
-FFPacketBuild(client, &generatedItem);
-client.send();
-}
-}
-
-if (type == SERVER)
-{
-UDPServer server = UDPServer(udps);
-server.init();
-
-while (running){
-if (server.getPacket() > 0)
-{
-int signature=0;
-memcpy(&signature,(char*)server.packet->data,sizeof(int));
-
-if(signature == PTYPE_TIMESTAMP)
-{
-FFPacketTimestamp p;
-FFPacketLoad<FFPacketTimestamp>(&p,server);
-std::stringstream ss;
-ss << "Timestamp: ";
-ss << p.time;
-}
-if(signature == PTYPE_POS)
-{
-FFPacketPos p;
-FFPacketLoad(&p,server);
-}
-
-}
-SDL_Delay(100);
-}
-}
-SDLNet_UDP_Close(udps);
-*/

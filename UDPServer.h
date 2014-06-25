@@ -63,9 +63,11 @@ public:
 
 	template<> std::string get<std::string>()
 	{
-		std::string result = std::string((char*)&(packet->data[pos]));
-		pos+=sizeof(char)*result.size();
+		std::string result = (char*)(&packet->data[pos]);
+		pos += sizeof(char)*result.size();
+		return result;
 	}
+
 
 	template <typename T>
 	void put(const T& item)

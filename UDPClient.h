@@ -26,6 +26,7 @@ public:
 
 	void init();
 	void send();
+	void send(const IPaddress& ip);
 	void clear();
 	
 	void putString(std::string s);
@@ -47,8 +48,9 @@ public:
 
 	template<> std::string get<std::string>()
 	{
-		std::string result = std::string((char*)&(packet->data[pos]));
+		std::string result = (char*)(&packet->data[pos]);
 		pos += sizeof(char)*result.size();
+		return result;
 	}
 
 };

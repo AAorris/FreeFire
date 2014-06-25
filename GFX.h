@@ -38,6 +38,7 @@ public:
 	void drawSprite(sprite& s, int x, int y);
 	void write(std::string text, int x, int y);
 	void loadAsset(std::string key, std::string path);
+	bool loadAsset(std::string path);
 	void loadFont(std::string key, std::string path, int fontSize);
 	void fontWrite(std::string font, std::string text, int x, int y);
 	void drawButton(SDLButton& b);

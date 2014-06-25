@@ -59,6 +59,21 @@ void GFX::loadAsset(std::string key, std::string path)
 	textures.insert(std::make_pair(key,tex));
 }
 
+bool GFX::loadAsset(std::string path)
+{
+	if (path == "")
+		return false;
+	SDL_Texture* tex = SDL_CreateTextureFromSurface(
+		ren,
+		IMG_Load(path.c_str())
+		);
+	if (tex == NULL)
+		return false;
+	//<std::string, SDL_Texture*>
+	textures.insert(std::make_pair(path, tex));
+	return true;
+}
+
 void GFX::fill(std::string assetName)
 {
 	SDL_RenderCopy(ren,textures[assetName],NULL,NULL);
