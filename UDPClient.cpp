@@ -39,10 +39,12 @@ void UDPClient::zero()
 */
 void UDPClient::init()
 {
+	if (packet != NULL)
+		SDLNet_FreePacket(packet);
 	packet = SDLNet_AllocPacket(packetSize);
 	clear(); //the packet
 	socket = SDLNet_UDP_Open(0);
-	SDLNet_ResolveHost(&ipserver, hostname.c_str(), port);
+	resolved = SDLNet_ResolveHost(&ipserver, hostname.c_str(), port);
 	packet->address.host = ipserver.host;
 	packet->address.port = ipserver.port;
 }
@@ -77,6 +79,10 @@ void UDPClient::clear()
 /**write a string into the packet*/
 void UDPClient::putString(std::string s)
 {
-	strcpy_s((char*)(packet->data + pos),s.size(), s.c_str());
-	pos+=s.length();
+	const char* str = s.c_str();
+	char* dest = (char*)calloc(sizeof(char), strlen(str) + 1);
+	//strcpy_s(dest, strlen(str)+1, str);
+	//could this be 4 bytes off?
+	strcpy_s((char*)(packet->data + pos), strlen(str) + 1, str);
+	pos += s.length();
 }

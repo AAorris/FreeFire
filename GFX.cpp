@@ -8,7 +8,7 @@ void GFX::init()
 	init("Random window", 100, 100, false);
 }
 
-void GFX::init(std::string _name, int _w, int _h, bool borderless)
+/*void GFX::init(std::string _name, int _w, int _h, bool borderless)
 {
 	Uint32 flags = 0;
 	w = _w;
@@ -22,6 +22,45 @@ void GFX::init(std::string _name, int _w, int _h, bool borderless)
 	font = fonts.at("default");
 	SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
 	SDL_ShowWindow(win);
+}*/
+
+void GFX::init(std::string _name, int _w, int _h, Uint32 flags)
+{
+	w = _w;
+	h = _h;
+	win = SDL_CreateWindow(_name.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, _w, _h, flags | SDL_WINDOW_HIDDEN);
+	ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
+	std::string error = SDL_GetError();
+	loadFont("default", "font/Roboto-Regular.ttf", 24);
+	loadFont("robotoblack12", "font/Roboto-Black.ttf", 12);
+	font = fonts.at("default");
+	SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
+	SDL_ShowWindow(win);
+}
+
+bool GFX::drawTile(pos& p, const std::string& key)
+{
+	int s = 32;
+	SDL_Rect rect = { p.x*s, p.y*s, s, s };
+
+	if (key != "")
+	{
+		std::unordered_map<std::string, SDL_Texture*>::iterator it = textures.find(key);
+		if (it!=textures.end())
+		{
+			SDL_Texture* tex = it->second;
+			SDL_RenderCopy(ren, tex, NULL, &rect);
+			return true;
+		}
+		else
+			return false;
+	}
+	else
+	{
+		SDL_SetRenderDrawColor(ren, 255, 0, 0, 255);
+		SDL_RenderDrawRect(ren, &rect);
+		return false;
+	}
 }
 
 void GFX::cleanup()
