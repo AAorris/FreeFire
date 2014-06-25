@@ -98,6 +98,7 @@ template<> void FFPacketBuildServer<FFPAsset>(UDPServer& server, FFPAsset* obj)
 	FFPacketBuildServer<FFPAsset>(server, &req);
 	server.send(dest);
 }*/
+
 enum ASSETCONTEXT
 {
 	ASSET_ERROR,
@@ -120,12 +121,10 @@ void sendAssetRequest(const int& id, M& manager, const IPaddress& dest)
 	manager.put<int>(PASSET);
 	manager.put<int>(ASSET_REQUEST);
 	manager.put<int>(id);
-	manager.put<std::string>("");
+	manager.putString("");
 	manager.send(dest);
 }
 
-//something's going awry with the string value... is it happening here?
-//perhaps putting an std::string is weird.
 template <typename M = UDPServer>
 void sendAssetResponse(const FFPAssetMessage& assetRequest, const std::string& value, M& manager, const IPaddress& dest)
 {
@@ -133,7 +132,8 @@ void sendAssetResponse(const FFPAssetMessage& assetRequest, const std::string& v
 	manager.put<int>(PASSET);
 	manager.put<int>(ASSET_REPLY);
 	manager.put<int>(assetRequest.assetID);
-	manager.put<char*>(value);
+	//manager.put<std::string>(value);
+	manager.putString(value);
 	manager.send(dest);
 }
 
@@ -145,8 +145,6 @@ FFPAssetMessage getAssetResponse(M& manager)
 	msg.context = manager.get<int>();
 	msg.assetID = manager.get<int>();
 	msg.assetName = manager.get<std::string>();
-	if (msg.assetName != "")
-		msg.assetName = msg.assetName.substr(4, msg.assetName.size());
 	manager.clear();
 	return msg;
 }
@@ -216,12 +214,14 @@ PCREATE(FFPShake)
 	obj.type = SHAKETYPE::ANONYMOUS;
 	return obj;
 }
+
 template<> void FFPacketBuildServer<FFPShake>(UDPServer& server, FFPShake* obj)
 {
 	server.clear();
 	server.put(obj->signature);
 	server.put(obj->type);
 }
+
 PBUILD(FFPShake) // client, obj
 {
 	client.clear();
@@ -271,6 +271,11 @@ template <> void FFPacketLoad<FFPacketTimestamp>(FFPacketTimestamp* obj, UDPServ
 ===============================================================
 ==============================================================*/
 
+enum POS_TYPE
+{
+	POS_RANDOM,
+	POS_MOUSE,
+};
 struct FFPacketPos
 {
 	int signature;
@@ -284,9 +289,20 @@ FFPacketPos RandomPacketPos()
 {
 	FFPacketPos pos;
 	pos.signature = PTYPE_POS;
-	pos.type = 1;
+	pos.type = POS_RANDOM;
 	pos.x = rand()%100;
 	pos.y = rand()%100;
+	return pos;
+}
+
+FFPacketPos MousePos(int x, int y)
+{
+	FFPacketPos pos;
+	pos.signature = PPOS;
+	pos.type = POS_MOUSE;
+	pos.id = 0;
+	pos.x = x;
+	pos.y = y;
 	return pos;
 }
 

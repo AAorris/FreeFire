@@ -23,12 +23,14 @@
 #include "FF_Packets.h"
 #include "GFX.h"
 #include "sprite.h"
+#include "GUIContainer.h"
 
 #define ROOT std::string("./")
 
 //globals
 enum RUN_TYPE {	NONE, SERVER, CLIENT, MODERATOR, TEAM_BOARD };
 int finding_runtype = 1;
+int connected = 0;
 int running = 1;
 RUN_TYPE type;
 
@@ -68,7 +70,7 @@ int main(int argc, char* argv[])
 	SDLNet_Init();
 	int treturn = 0;
 	GFX menu1;
-	menu1.init("Free Fire Menu", 600, 300, true);
+	menu1.init("Free Fire Menu", 600, 300, SDL_WINDOW_BORDERLESS);
 	mutex_sim = SDL_CreateMutex();
 	tileQueue = std::queue<FFPTileUpdate>();
 
@@ -209,11 +211,14 @@ int runClient()
 	log.open("Client_MainLog.txt");
 	log << "Opening Client log...\n";
 	GFX gfx = GFX();
-	gfx.init("FreeFire Client", 300, 300);
+	SDL_DisplayMode screen;
+	SDL_GetCurrentDisplayMode(0, &screen);
+	gfx.init("FreeFire Client", screen.w*.8, screen.h*.8, 0);
 	while (running)
 	{
-		gfx.fill(255, 255, 255, 255);
-		gfx.write("Hello, Client!", 10, 10);
+		gfx.fill(128, 128, 128, 255);
+		if (!connected)
+			gfx.write("Client | Connecting...", 10, 10);
 
 		if (newAssets.empty() == false)
 		{
@@ -236,14 +241,35 @@ int runClient()
 			}
 		}
 
-		for (int x = 0; x < 10; x++)
+		for each (auto layer in sim.grid)
+		{
+			SimulationManager::t_chunk chunks = layer.second;
+			for each (auto chunk in chunks)
+			{
+				pos p = chunk.first;
+				int id = chunk.second;
+				if (sim.hasLookup(id)) {
+
+					bool drew = gfx.drawTile(p, sim.path(id));
+					
+					//log << "Drawing " << sim.path(id) << "... ";
+					if (!drew) {
+						//log << "failed.\n";
+						newAssets.push(sim.path(id));
+					}
+					else;
+						//log << "success.\n";
+				}
+			}
+		}
+		/*for (int x = 0; x < 10; x++)
 		{
 			for (int y = 0; y < 10; y++)
 			{
 				int value = sim.getTile("map", pos(x, y));
 				if (value != -1)
 				{
-					SDL_Rect rect = { x * 10, y * 10, 10, 10 };
+					SDL_Rect rect = { x * 32, y * 32, 32, 32 };
 					if (sim.hasLookup(value))
 					{
 						std::string key = sim.path(value);
@@ -263,12 +289,12 @@ int runClient()
 					}
 				}
 			}
-		}
+		}*/
 
 		gfx.show();
 		log << "Handling events...\n";
 		handleEvents(running);
-		SDL_Delay(16);
+		SDL_Delay(1000/30);
 	}
 	gfx.cleanup();
 
@@ -284,7 +310,7 @@ int runServer()
 	log.open("Server_MainLog.txt");
 	log << "Opening Server log...\n";
 	GFX gfx = GFX();
-	gfx.init("FreeFire Server", 300, 300);
+	gfx.init("FreeFire Server", 300, 300, 0);
 
 	SimulationManager serverSim = SimulationManager();
 
@@ -300,21 +326,41 @@ int runServer()
 	gfx.loadAsset("fire.png");
 	sim.lookup.insert(std::make_pair(4, "fire.png"));
 
+	GUIContainer<int> templates = GUIContainer<int>();
+	templates.setSpacing(5);
+	templates.setSize(100, 35);
+	templates.add(0);
+	templates.add(1);
+	templates.add(2);
+	templates.add(3);
+	templates.add(4);
 
 	SDL_Thread* net = SDL_CreateThread(thread_net, "NetServerFF", (void*)RUN_TYPE::SERVER);
 	int netstatus;
 
 	while (running)
 	{
-		gfx.fill(255, 255, 255, 255);
-		gfx.write("Hello, Server!", 10, 10);
-		gfx.show();
+		gfx.fill(128, 128, 128, 255);
+		if (!connected)
+			gfx.write("Server | Connecting...", 10, 10);
+
+		auto icon_rects = templates.icon_rects();
+		for (int i = 0; i < icon_rects.size(); i++)
+		{
+			SDL_Rect* r = &icon_rects[i];
+			std::string s_icon = sim.path(templates.children[i]);
+			if (s_icon != "")
+				gfx.draw(s_icon, r);
+			else
+				gfx.draw(*r);
+		}
 
 		if (SDL_TryLockMutex(mutex_sim) == 0) {
 			//log << "In mutex\n";
 			SDL_UnlockMutex(mutex_sim);
 		}
 		//log << "Handling events...\n";
+		gfx.show();
 		handleEvents(running);
 		SDL_Delay(16);
 	}
@@ -332,18 +378,20 @@ int runModerator()
 	std::ofstream log;
 	log.open("Moderator_MainLog.txt");
 	log << "Opening Server log...\n";
-	GFX mod = GFX();
-	mod.init("FreeFire Server", 1024, 768);
+	GFX gfx = GFX();
+	SDL_DisplayMode screen;
+	SDL_GetCurrentDisplayMode(0, &screen);
+	gfx.init("FreeFire Moderator Panel", screen.w, screen.h, SDL_WINDOW_FULLSCREEN);
 	while (running)
 	{
-		mod.fill(255, 255, 255, 255);
-		mod.write("Hello, Moderator!", 10, 10);
-		mod.show();
+		gfx.fill(255, 255, 255, 255);
+		gfx.write("Hello, Moderator!", 10, 10);
+		gfx.show();
 		log << "Handling events...\n";
 		handleEvents(running);
 		SDL_Delay(16);
 	}
-	mod.cleanup();
+	gfx.cleanup();
 
 	SDL_WaitThread(net, &netstatus);
 	return 1;
@@ -358,7 +406,9 @@ int runTeamBoard()
 	log.open("Teamboard_MainLog.txt");
 	log << "Opening Team Board log...\n";
 	GFX server = GFX();
-	server.init("FreeFire Team Board", 1024, 768, true);
+	SDL_DisplayMode screen;
+	SDL_GetCurrentDisplayMode(0, &screen);
+	server.init("FreeFire Team Board", screen.w, screen.h, 0);
 	while (running)
 	{
 		server.fill(255, 255, 255, 255);
@@ -406,14 +456,27 @@ int thread_net(void* netType)
 			/*
 			CHECK FOR INCOMING PACKETS
 			*/
+			std::unordered_map<IPaddress, pos, IPHash, IPEq> clientMice = std::unordered_map<IPaddress, pos, IPHash, IPEq>();
 			if (server.getPacket() > 0)
 			{
 				int signature = 0;
 				memcpy(&signature, (char*)server.packet->data, sizeof(int));
 				log << "Got packet with signature " << signature << std::endl;
+
 				/*
 				Handle incoming handshakes from new clients
 				*/
+				if (signature == PPOS)
+				{
+					FFPacketPos p;
+					FFPacketLoad(&p, server);
+					if (p.type == POS_MOUSE)
+					{
+						IPaddress clientIP = server.packet->address;
+						pos clientMouse = pos(p.x, p.y);
+						clientMice.insert(std::make_pair(clientIP, clientMouse));
+					}
+				}
 				if (signature == PASSET)
 				{
 					FFPAssetMessage msg = getAssetResponse(server);
@@ -421,7 +484,7 @@ int thread_net(void* netType)
 					{
 						if (sim.lookup.count(msg.assetID) != 0)
 						{
-							log << "Some client is asking for an asset they don't recognize, I guess I'll help them out.\n";
+							log << "Some client is asking for an asset they don't recognize, I guess I'll help them out.("<<sim.lookup.at(msg.assetID)<<")\n";
 							sendAssetResponse(msg, sim.lookup.at(msg.assetID), server, server.packet->address);
 						}
 						else
@@ -454,6 +517,7 @@ int thread_net(void* netType)
 							{
 								log << "Uh, you can stop shaking my hand now...\n";
 							}
+
 							FFPShake returnShake = FFPacketCreate<FFPShake>();
 							returnShake.type = SHAKETYPE::ACCEPT;
 							FFPacketBuildServer<FFPShake>(server, &returnShake);
@@ -470,21 +534,40 @@ int thread_net(void* netType)
 						if (server.shaking.find(server.packet->address) != server.shaking.end())
 						{
 							log << "Done shaking " << server.packet->address.host << ":" << server.packet->address.port << "'s hand. Now we've met.\n";
+							connected = 1;
 							server.clients.insert(server.packet->address);
 							server.shaking.erase(server.packet->address);
 						}
 					}
 				}
 			}
+			sim.updateTile("map", pos(rand() % 30, rand() % 30), rand() % 4);
 			if (server.clients.size() > 0)
 			{
 				/*
 				Send updates to relevant existing clients
 				*/
-				for (auto i = server.clients.begin(); i != server.clients.end(); i++)
-				{
+				for (auto i = server.clients.begin(); i != server.clients.end(); i++){
+				//for (std::unordered_map<IPaddress, pos, IPHash, IPEq>::iterator m = clientMice.begin(); m != clientMice.end(); m++)
+				//{
+					
+					/*pos p = m->second;
+					IPaddress a = m->first;
+					p.x /= 32;
+					p.y /= 32;
+					for (int ix = p.x - 3; ix <= ix + 3; ix++)
+					{
+						for (int iy = p.y - 3; iy <= iy + 3; iy++)
+						{
+							int t = sim.getTile("map", pos(ix, iy));
+							if (t != -1)
+							{
+								sendTileUpdate("map", ix, iy, t, server, a);
+							}
+						}
+					}*/
 					int treeTile = rand()%4;
-					sendTileUpdate("map", rand()%10, rand()%10, treeTile,server,*i);
+					sendTileUpdate("map", rand()%30, rand()%30, treeTile,server,*i);
 				}
 			}
 			SDL_Delay(100);
@@ -508,12 +591,25 @@ int thread_net(void* netType)
 
 		while (running)
 		{
+			if (client.resolved == -1 || client.packet->address.host==INADDR_NONE)
+			{
+				log << "Unresolved host!\n";
+				client.init();
+			}
 			//get the server to say hi!
 			if (!shook) {
 				FFPShake outgoingShake = FFPacketCreate<FFPShake>();
 				FFPacketBuild(client, &outgoingShake);
 				client.send();
 				log << "Please shake my hand Mr. Server!\n";
+			}
+			else {
+				int mx = 0;
+				int my = 0;
+				SDL_GetMouseState(&mx, &my);
+				FFPacketPos mousePos = MousePos(mx, my);
+				FFPacketBuild(client, &mousePos);
+				client.send();
 			}
 			//check if the server has sent us any information
 			while (SDLNet_UDP_Recv(client.socket, client.packet))
@@ -560,7 +656,7 @@ int thread_net(void* netType)
 						log << "Couldn't lock the mutex! Adding update to queue.\n";
 					}
 				}
-				if (!shook && signature == PSHAKE)
+				if (signature == PSHAKE)
 				{
 					FFPShake incomingShake;
 					PLoadShake(&incomingShake, client);
@@ -569,6 +665,7 @@ int thread_net(void* netType)
 					{
 						shook = true;
 						log << "Mr. Server shook my hand! Stopping shaking.\n";
+						connected = true;
 						FFPShake outgoingShake = FFPacketCreate<FFPShake>();
 						outgoingShake.type = SHAKETYPE::ACCEPT;
 						FFPacketBuild<FFPShake>(client, &outgoingShake);

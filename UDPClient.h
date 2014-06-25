@@ -10,6 +10,7 @@ public:
 	int port;
 	int packetSize;
 	int channel;
+	int resolved;
 
 	//current position in the data
 	int pos;

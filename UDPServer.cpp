@@ -64,7 +64,9 @@ void UDPServer::send(const IPaddress& ip)
 {
 	packet->len = pos + 1;
 	packet->address = ip;
-	SDLNet_UDP_Send(socket, channel, packet);
+	int res = SDLNet_UDP_Send(socket, channel, packet);
+	if (res == 0)
+		throw 0;
 	clear();
 }
 
