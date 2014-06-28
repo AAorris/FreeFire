@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "sprite.h"
 
 animation::animation(std::vector<int> p_frames, int p_framerate)

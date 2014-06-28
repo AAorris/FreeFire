@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "UDPServer.h"
 
 /**Clean up variable garbage*/

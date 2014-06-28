@@ -13,7 +13,7 @@ enum CONTAINERTYPE
 	CONTAINER_GRID,
 };
 
-template <typename TC>
+template <typename T>
 class GUIContainer
 {
 private:
@@ -22,7 +22,11 @@ private:
 public:
 	int x;
 	int y;
-	std::vector<TC> children;
+	int selectedIndex;
+	bool selectingIndex;
+	std::vector<T> children;
+	std::vector<SDL_Rect> cachedRects;
+	std::vector<SDLButton> buttons;
 	int spacing;
 	CONTAINERTYPE layout;
 
@@ -30,13 +34,23 @@ public:
 	{
 		w = 0;
 		h = 0;
+		selectedIndex = -1;
+		selectingIndex = false;
 		spacing = 0;
-		children = std::vector<TC>();
+		children = std::vector<T>();
 		layout = CONTAINER_VERTICAL;
 	}
-	void add(const TC& child)
+	void add(const T& child)
 	{
 		children.push_back(child);
+	}
+	//draw(T,rect)
+	void draw( void* func)
+	{
+		for (int i = 0; i < children.size(); i++)
+		{
+			func(children[i], cachedRects[i]);
+		}
 	}
 	SDL_Rect background_rect()
 	{
@@ -66,6 +80,7 @@ public:
 	{
 		w = width;
 		layout = CONTAINER_HORIZONTAL;
+		cachedRects = icon_rects();
 	}
 	void setHeight(const int& height)
 	{
