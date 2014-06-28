@@ -13,72 +13,132 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Old_h">
+      <UniqueIdentifier>{a758ffc5-2246-47b4-9639-fd23b459a2d1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Old_cpp">
+      <UniqueIdentifier>{d88f4633-4666-461a-b5b8-dc52dc873da7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="GFX.cpp">
+    <ClCompile Include="Client.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Tool.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Facet.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Role.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Application.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Main.cpp">
+      <Filter>Old_cpp</Filter>
+    </ClCompile>
+    <ClCompile Include="Application_FreeFire.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="pos.cpp">
+    <ClCompile Include="Role_Client.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="SDLButton.cpp">
+    <ClCompile Include="Role_Server.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="sprite.cpp">
+    <ClCompile Include="Role_TeamBoard.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="UDPClient.cpp">
+    <ClCompile Include="Role_Moderator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="UDPServer.cpp">
+    <ClCompile Include="Facet_Net.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="SimulationManager.cpp">
+    <ClCompile Include="Facet_Sim.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Facet_Cfg.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Facet_Gfx.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Facet_UI.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Tool_Asset.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Tool_Messenger.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Tool_UIElement.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="stdafx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="ClientSocket.h">
+    <ClInclude Include="Tool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="FF_Packets.h">
+    <ClInclude Include="Facet.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="GFX.h">
+    <ClInclude Include="Role.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="pos.h">
+    <ClInclude Include="Application.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="sprite.h">
+    <ClInclude Include="Application_FreeFire.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="StaticSprite.h">
+    <ClInclude Include="Role_Client.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SDLButton.h">
+    <ClInclude Include="Role_Server.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="UDPClient.h">
+    <ClInclude Include="Role_TeamBoard.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="UDPServer.h">
+    <ClInclude Include="Role_Moderator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="mapStorage.h">
+    <ClInclude Include="Facet_Net.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="TextureChunk.h">
+    <ClInclude Include="Facet_Sim.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="GUIContainer.h">
+    <ClInclude Include="Facet_Cfg.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SimulationManager.h">
+    <ClInclude Include="Facet_Gfx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Facet_UI.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Tool_Asset.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Tool_Messenger.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Tool_UIElement.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="stdafx.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ClassDiagram.cd" />
   </ItemGroup>
 </Project>

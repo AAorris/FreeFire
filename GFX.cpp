@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "GFX.h"
 
 GFX::GFX() {
