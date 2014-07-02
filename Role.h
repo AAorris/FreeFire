@@ -12,5 +12,6 @@ private:
 public:
 	Role();
 	virtual ~Role();
+	Role(const Role& c) = delete;
 };
 

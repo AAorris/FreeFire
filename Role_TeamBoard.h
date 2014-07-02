@@ -6,5 +6,6 @@ class Role_TeamBoard :
 public:
 	Role_TeamBoard();
 	virtual ~Role_TeamBoard();
+	Role_TeamBoard(const Role_TeamBoard& c) = delete;
 };
 

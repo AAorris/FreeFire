@@ -113,6 +113,7 @@
     </ClCompile>
     <ClCompile Include="Tool.cpp" />
     <ClCompile Include="Tool_Asset.cpp" />
+    <ClCompile Include="Tool_Configurable.cpp" />
     <ClCompile Include="Tool_Messenger.cpp" />
     <ClCompile Include="Tool_UIElement.cpp" />
   </ItemGroup>
@@ -133,6 +134,7 @@
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="Tool.h" />
     <ClInclude Include="Tool_Asset.h" />
+    <ClInclude Include="Tool_Configurable.h" />
     <ClInclude Include="Tool_Messenger.h" />
     <ClInclude Include="Tool_UIElement.h" />
   </ItemGroup>
