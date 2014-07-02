@@ -8,3 +8,6 @@
 #include <vector>
 #include <map>
 #include <unordered_map>
+
+using std::unique_ptr;
+using std::shared_ptr;
