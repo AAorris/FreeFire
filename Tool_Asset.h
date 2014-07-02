@@ -3,9 +3,16 @@
 class Tool_Asset :
 	public Tool
 {
+private:
+	class Impl
+	{
+	public:
+		class asset;
+		Impl();
+	};
+	std::unique_ptr<Impl> p;
 public:
-	Tool_Asset();
+	Tool_Asset(const std::string& s);
 	virtual ~Tool_Asset();
 	Tool_Asset(const Tool_Asset& c) = delete;
 };
-

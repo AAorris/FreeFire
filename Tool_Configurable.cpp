@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "Tool_Configurable.h"
-#include <iostream>
+//#include <iostream>
 #include <boost\property_tree\ptree.hpp>
 #include <boost\property_tree\info_parser.hpp>
 
