@@ -6,5 +6,6 @@ class Role_Server :
 public:
 	Role_Server();
 	virtual ~Role_Server();
+	Role_Server(const Role_Server& c) = delete;
 };
 
