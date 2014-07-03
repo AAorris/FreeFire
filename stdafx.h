@@ -1,5 +1,8 @@
 #pragma once
 
+#include <SDL2\SDL.h>
+// -main.cpp
+
 #include <memory>
 //#include <math.h>
 #include <iostream>

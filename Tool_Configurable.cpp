@@ -50,5 +50,11 @@ std::string DEF::serialize()
 	return serial.str();
 }
 
+std::ostream& Tool_Configurable::operator<<(std::ostream& os)
+{
+	os << serialize();
+	return os;
+}
+
 #undef DEF
 #undef IMPL
