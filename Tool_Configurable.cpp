@@ -3,6 +3,7 @@
 //#include <iostream>
 #include <boost\property_tree\ptree.hpp>
 #include <boost\property_tree\info_parser.hpp>
+#include <boost\property_tree\xml_parser.hpp>
 
 #define DEF Tool_Configurable //these get UNDEF'ed
 #define IMPL Tool_Configurable::Impl //DONT FORGET THE UNDEF :-)
