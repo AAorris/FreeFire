@@ -3,9 +3,17 @@
 #include <SDL2\SDL_render.h>
 #include <SDL2\SDL_image.h>
 
-#define DEF Tool_Asset //these get UNDEF'ed
-#define IMPL Tool_Asset::Impl //DONT FORGET THE UNDEF :-)
+#define CLASS Tool_Asset
+#include "PIMPL.h"
 
+//#define DEF Tool_Asset //these get UNDEF'ed
+//#define IMPL Tool_Asset::Impl //DONT FORGET THE UNDEF :-)
+std::vector<std::string> Tool_Asset::lookup = std::vector<std::string>();
+/*
+std::function<SDL_Surface* delSurf(SDL_Surface* s)
+{
+	SDL_FreeSurface(s);
+}*/
 
 class IMPL
 {
@@ -17,8 +25,8 @@ private:
 	Impl() = delete;
 protected:
 public:
-	SDL_Texture* texture;
-	SDL_Renderer* renderer;
+	SDL_Texture* texture = NULL;
+	SDL_Renderer* renderer = NULL;
 	std::string path;
 
 	int x;
@@ -26,13 +34,13 @@ public:
 
 	Impl(std::string p_path, SDL_Renderer* p_ren)
 	{
+		lookup.push_back(p_path);
 		path = p_path;
 		renderer = p_ren;
-		SDL_Surface* temp = IMG_Load(path.c_str());
-		texture = SDL_CreateTextureFromSurface(renderer, temp);
-		SDL_FreeSurface(temp);
+		auto ptr = sdlWrap(IMG_Load(p_path.c_str()));
+		texture = SDL_CreateTextureFromSurface(p_ren, ptr.get());
 	}
-	~Impl(){ SDL_DestroyTexture(texture); }
+	~Impl(){ if(texture!=NULL) SDL_DestroyTexture(texture); }
 
 	void draw(int x, int y)
 	{
@@ -48,21 +56,40 @@ public:
 		}
 	}
 
-};
+}; 
 
-Tool_Asset::Tool_Asset(const std::string& path, void* ren) :
-	p { new IMPL{ path, (SDL_Renderer*)ren } }
+CTOR(const std::string& path, void* ren) :
+	p{ new IMPL{ path, (SDL_Renderer*)ren } },
+	id{ lookup.size() }
 {
 
 }
 
-DEF::~DEF()
+DTOR()
 {
 }
 
-void DEF::draw(int x, int y)
+int CLASS::useLookup(const std::string& s)
+{
+	auto it = std::find(begin(lookup), end(lookup), s);
+	auto dist = std::distance(begin(lookup), it);
+	return (dist==lookup.size())?-1:dist;
+}
+
+void CLASS::draw(int x, int y)
 {
 	p->draw(x, y);
+}
+
+bool CLASS::operator==(const CLASS& c) const
+{
+	return c.id == id;
+}
+
+CLASS::CLASS(CLASS&& other) : p{ std::move(other.p) }
+{
+	id = std::move(other.id);
+	path = std::move(other.path);
 }
 
 /*
@@ -72,5 +99,6 @@ void delTex(SDL_Texture* t) {
 }
 */
 
-#undef DEF
-#undef IMPL
+
+//#undef DEF
+//#undef IMPL

@@ -103,6 +103,8 @@
     <ClCompile Include="Facet_Sim.cpp" />
     <ClCompile Include="Facet_UI.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="Module.cpp" />
+    <ClCompile Include="Module_Fire.cpp" />
     <ClCompile Include="Role.cpp" />
     <ClCompile Include="Role_Client.cpp" />
     <ClCompile Include="Role_Moderator.cpp" />
@@ -115,6 +117,7 @@
     <ClCompile Include="Tool_Asset.cpp" />
     <ClCompile Include="Tool_Configurable.cpp" />
     <ClCompile Include="Tool_Messenger.cpp" />
+    <ClCompile Include="Tool_Pos.cpp" />
     <ClCompile Include="Tool_UIElement.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -126,6 +129,9 @@
     <ClInclude Include="Facet_Net.h" />
     <ClInclude Include="Facet_Sim.h" />
     <ClInclude Include="Facet_UI.h" />
+    <ClInclude Include="Module.h" />
+    <ClInclude Include="Module_Fire.h" />
+    <ClInclude Include="PIMPL.h" />
     <ClInclude Include="Role.h" />
     <ClInclude Include="Role_Client.h" />
     <ClInclude Include="Role_Moderator.h" />
@@ -136,6 +142,7 @@
     <ClInclude Include="Tool_Asset.h" />
     <ClInclude Include="Tool_Configurable.h" />
     <ClInclude Include="Tool_Messenger.h" />
+    <ClInclude Include="Tool_Pos.h" />
     <ClInclude Include="Tool_UIElement.h" />
   </ItemGroup>
   <ItemGroup>

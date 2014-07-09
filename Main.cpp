@@ -4,127 +4,163 @@
 #include "Tool_Configurable.h"
 #include "Tool_Asset.h"
 #include "Tool_Messenger.h"
+#include "Tool_Pos.h"
+#include "Module_Fire.h"
+#include "Facet_Sim.h"
+#include "Facet_Gfx.h"
+#include "Module.h"
 #include <SDL2\SDL_net.h>
 #include <bitset>
+#include <fstream>
 #include <cassert>
+#include <boost/range/adaptor/reversed.hpp>
 //#include <sstream>
 
 
-class Pos
-{
-	int		_pos;
-public:
-	short* x;
-	short* y;
-	Pos(short x, short y);
-	~Pos() = default;
-};
 
-Pos::Pos(short px, short py) :
-_pos{ 0 },
-x{ (short*)(&_pos)[0] },
-y{ (short*)(&_pos)[1] }
+using boost::adaptors::reverse;
+std::ofstream logFile;
+
+void fflogger(void* userdata, int category, SDL_LogPriority priority, const char* message)
 {
-	*x = px;
-	*y = py;
+	// Change to fit your needs (like to output to a file) 
+	logFile << message;
 }
-
-class Chunk
-{
-public:
-	const static int width = 4;
-	const static int height = 4;
-	const static int res = 4;
-	const static int total = width*height*res;
-	typedef	std::bitset<total>	t_data;
-	typedef	std::bitset<res>	t_item;
-	//requires t_data has std::hash
-	std::hash<t_data>			hash;
-	std::string	serialize();
-	char cell(int x, int y);
-	Chunk();
-	Chunk(const t_data& pdata);
-	Chunk(const std::string& hex);
-	~Chunk() = default;
-private:
-	t_data* data;
-	Chunk(const Chunk& c) = delete;
-	void operator=(const Chunk& c) = delete;
-};
-
-Chunk::Chunk()// : data {  } //<- std::unique_ptr<std::bitset<total>>(new std::bitset<total>())
-{
-	data = new t_data();
-}
-
-//with res=4, w=4, h=4, a 64 bit hex can store 16 types (0-F) in a 4x4 grid:
-//0x FFFF FFFF FFFF FFFF for a total of 16 tiles.
-std::string Chunk::serialize()
-{
-	std::stringstream ss;
-	ss << std::hex << std::uppercase << data->to_ullong();
-	return ss.str();
-}
-/*
-Chunk::Chunk(const t_data& pdata) : Chunk()
-{
-	*data &= pdata;
-}*/
-
-Chunk::Chunk(const std::string& hex)
-{
-	std::stringstream ss;
-	ss << std::hex << hex;
-	unsigned long long n;
-	ss >> n;
-	data = new t_data(n);
-}
-
-/**Go ahead and use only the first parameter for 1d reference. */
-char Chunk::cell(int x, int y=0)
-{
-	//result initializes a new t_item as a subset of data.
-	//right now, it's a bitset created from a bitset.
-	//bitset's most significant bits are at the end. Go backwards
-	t_item set = t_item();
-	for(int i = 3; i>=0; i--)
-		set.set( i, data->test(total - 1 - (i + x*res + y*width*res))  );
-	return (char)set.to_ulong();
-}
-
 
 int main(int argc, char* argv[])
 {
+	/*---------------------
+	GLOBAL INIT
+	---------------------*/
+	SDL_LogSetOutputFunction(&fflogger, NULL);
+	//SDL_LogSetOutputFunction(ffloger,)
 	typedef Tool_Configurable t_config;
+	logFile.open("log.txt");
+	SDL_Init(SDL_INIT_EVERYTHING);
 
-		SDL_Init(SDL_INIT_EVERYTHING);
+	/*---------------------
+	UNIT TEST DEFINITIONS
+	---------------------*/
+	auto testConfig = [](){
+		auto config = wrap(new t_config("test.info"));
+		std::string data = config->serialize();
+	};
 
-	auto config = unique_ptr<t_config>{new t_config("test.info")};
-	std::string data = config->serialize();
+	auto testNetMessenger = [](){
+		UDPpacket* packet = SDLNet_AllocPacket(512);
+		auto messenger = wrap(new Tool_Messenger());
+
+		auto data = "Hello, world!";
+		messenger->write(data, packet->data);
+		SDL_ShowSimpleMessageBox(0, "test", messenger->read(packet->data).c_str(), NULL);
+		SDLNet_FreePacket(packet);
+	};
+
+	auto testAssets = [](){
+		SDL_Renderer* ren;
+		SDL_Window* win;
+		SDL_CreateWindowAndRenderer(600, 600, 0, &win, &ren);
+		auto asset = wrap(new Tool_Asset{ "fire_fighter.png", ren });
+		asset->draw(10, 10);
+		SDL_RenderPresent(ren);
+		SDL_Delay(2000);
+
+		int index = _asset::useLookup("fire_fighter.png");
+		SDL_Log("\nIndex was %d\n\n", index);
+		return index!=-1;
+	};
+
+	auto testGFX = []() {
+		auto gfx = wrap(new _gfx());
+		gfx->loadAsset("fire_fighter.png");
+		//gfx->setOrigin(0, 0);
+		//gfx->setScale(1);
+
+		//gfx->draw(1,)
+		return true;
+	};
+
+	auto testChunks = []() {
+		auto sim = wrap(new t_sim());
+		using AA::Pos;
+		//sim->put(Pos(1, 0), 0xA);
+		//sim->put(Pos(2, 0), 0xC);
+		//sim->put(Pos(3, 3), 0xB);
+		sim->putChunk("0110110100110100", Pos(0, 0));
+		std::string cs = sim->getChunk(Pos(0, 0));
+		sim->putChunk(cs, Pos(1,0));
+		std::string cs2 = sim->getChunk(Pos(1, 0));
+		assert(cs2 == cs);
+		return true;
+	};
+
+	auto testFire = [](){
+		using AA::Pos;
 
 		SDL_Renderer* ren;
 		SDL_Window* win;
-
 		SDL_CreateWindowAndRenderer(600, 600, 0, &win, &ren);
 
-	Tool_Asset* asset = new Tool_Asset{ "fire_fighter.png", ren };
-	asset->draw(10, 10);
-	delete asset;
+		auto a_fire = wrap(new Tool_Asset{ "fire.png", ren });
+		auto fireModule = Module_Fire{};
+		auto sim = wrap(new Facet_Sim{});
+		sim->putChunk("F000 F000 F000 F000", Pos(0, 0));
+		sim->putChunk("F000 F000 F000 F000", Pos(1, 0));
+		sim->putChunk("F000 F000 F000 F000", Pos(1, 1));
+		sim->putChunk("F000 F000 F000 F000", Pos(0, 1));
 
-		UDPpacket* packet = SDLNet_AllocPacket(512);
-	auto messenger = new Tool_Messenger();
-	
-	messenger->write(data, packet->data);
-		SDL_ShowSimpleMessageBox(0, "test", messenger->read(packet->data).c_str(), NULL);
-	
-		SDLNet_FreePacket(packet);
-	delete messenger;
+		auto draw = [&sim, &ren, &a_fire]() {
+			SDL_RenderClear(ren);
+			
+			SDL_RenderPresent(ren);
+		}; // testfire draw
 
-	auto c = unique_ptr<Chunk> { new Chunk("FFFF0F0102159180") };
+//		fireModule.sync(sim->getMap);
+		sim->saveState("autosave.map");
+		fireModule.loadState("autosave.map");
+		int time = 0;
+		while (time < 1000 * 100)
+		{
+			fireModule.update(100);
+			time += 100;
 
-	SDL_RenderPresent(ren);
-	SDL_Delay(2000);
+			auto news = fireModule.getNews();
+			for (auto n : news)
+			{
+				SDL_Log(FF::translate<Module_Fire, t_sim>()(n, sim.get()).c_str());
+			} if (news.size() > 0) {
+				std::stringstream name;
+				name << "Map" << time << ".map";
+				sim->saveState(name.str());
+			}
 
+			draw();
+
+			SDL_Delay(16);
+		}
+
+		return true;
+	}; // testfire
+
+	auto test = [](bool(*func)(), std::string name) {
+		SDL_Log("Testing %s\n", name.c_str());
+		bool result = func();
+		SDL_Log("Testing %s ", name.c_str());
+		SDL_Log((result ? "Succeeded\n" : "Failed\n"));
+	}; 
+
+	/*---------------------
+	MAIN
+	---------------------*/
+
+	//testConfig();
+	//testNetMessenger();
+	test(testAssets, "Asset Test");
+	//testChunks();
+	//test(testFire,std::string("Fire"));
+	test(testGFX, "GFX Test");
+
+	logFile.close();
 	SDL_Quit();
 	return 1;
 }

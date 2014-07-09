@@ -55,6 +55,7 @@ void Tool_Messenger::Impl::write(const std::string& data, Uint8* start)
 	SDLNet_Write16(0xFFFF, start + i++);
 }
 
+
 /*=======================================
 -----------------------------------------
 			   Definition
