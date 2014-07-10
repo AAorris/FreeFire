@@ -11,14 +11,15 @@ private:
 public:
 
 	int id;
-	std::string path;
+	//std::string path;
 
-	Tool_Asset(const std::string& s, void* ren);
+	Tool_Asset(const std::string& s, void* ren, int pid=-1);
 	virtual ~Tool_Asset();
 	Tool_Asset(const Tool_Asset& c) = delete;
 	Tool_Asset(Tool_Asset&& other);
 	bool operator==(const Tool_Asset& a) const;
-	void draw(int x, int y);
+	void draw(int x, int y) const;
+	std::string getPath();
 	static int useLookup(const std::string& s);
 
 }; 

@@ -8,6 +8,9 @@
 #define DEF Tool_Configurable //these get UNDEF'ed
 #define IMPL Tool_Configurable::Impl //DONT FORGET THE UNDEF :-)
 
+using boost::property_tree::ptree;
+using boost::property_tree::read_info;
+
 IMPL::Impl() :
 	data { new boost::property_tree::ptree() }
 {
@@ -15,23 +18,16 @@ IMPL::Impl() :
 
 void IMPL::load(const std::string& path)
 {
-	using boost::property_tree::ptree;
-	using boost::property_tree::read_info;
 	//Load the data from the file here. In this case, populates a ptree.
 	read_info(path,*data);
 }
-
-template <typename T>
-T IMPL::get(const std::string& path)
-{
-	return data.get<std::string>(path);
-}
-
+/*
 template <typename T>
 void IMPL::put(const T& t)
 {
 
 }
+*/
 
 DEF::Tool_Configurable(const std::string& path)
 : p{ new Impl() }
@@ -42,6 +38,34 @@ DEF::Tool_Configurable(const std::string& path)
 
 DEF::~Tool_Configurable()
 {
+}
+
+ptree DEF::getT(const std::string& path)
+{
+	return p->data->get_child(path,ptree());
+}
+
+std::string DEF::get(const std::string& path)
+{
+	return p->data->get<std::string>(path, "");
+}
+
+std::vector<std::string> DEF::getAssets()
+{
+	using boost::property_tree::ptree;
+	std::vector<std::string> result;
+
+	//get assets from the templates
+	auto templates = getT("Templates");
+	for (auto i_template : templates)
+	{
+		char id = i_template.second.get<char>("id");
+		auto asset = i_template.second.get<std::string>("asset");
+		std::stringstream ss;
+		ss << id << asset;
+		result.push_back(ss.str());
+	}
+	return result;
 }
 
 std::string DEF::serialize()

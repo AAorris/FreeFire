@@ -42,7 +42,7 @@ public:
 	}
 	~Impl(){ if(texture!=NULL) SDL_DestroyTexture(texture); }
 
-	void draw(int x, int y)
+	void draw(int x, int y) const
 	{
 		SDL_Rect rdst = { x, y, 0, 0 };
 		if (texture != NULL && renderer != NULL)
@@ -58,9 +58,9 @@ public:
 
 }; 
 
-CTOR(const std::string& path, void* ren) :
+CTOR(const std::string& path, void* ren, int pid) :
 	p{ new IMPL{ path, (SDL_Renderer*)ren } },
-	id{ lookup.size() }
+	id{ (pid==-1)?lookup.size():pid }
 {
 
 }
@@ -76,7 +76,7 @@ int CLASS::useLookup(const std::string& s)
 	return (dist==lookup.size())?-1:dist;
 }
 
-void CLASS::draw(int x, int y)
+void CLASS::draw(int x, int y) const
 {
 	p->draw(x, y);
 }
@@ -88,8 +88,13 @@ bool CLASS::operator==(const CLASS& c) const
 
 CLASS::CLASS(CLASS&& other) : p{ std::move(other.p) }
 {
-	id = std::move(other.id);
-	path = std::move(other.path);
+	id = other.id;
+	//path = other.path;
+}
+
+std::string CLASS::getPath()
+{
+	return p->path;
 }
 
 /*
