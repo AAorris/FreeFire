@@ -54,3 +54,4 @@ public:
 };
 
 typedef Facet_Sim t_sim;
+typedef Facet_Sim _sim;

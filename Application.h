@@ -5,5 +5,7 @@ public:
 	Application();
 	virtual ~Application();
 	Application(const Application& c) = delete;
+
+	void run();
 };
 

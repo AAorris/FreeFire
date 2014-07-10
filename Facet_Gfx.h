@@ -1,8 +1,14 @@
 #pragma once
 #include "Facet.h"
 #include "Tool_Asset.h"
+#include "Facet_Sim.h"
 #include <iosfwd>
 #include <unordered_set>
+
+namespace GFX {
+	const int res = 32;
+}
+
 class Facet_Gfx :
 	public Facet
 {
@@ -20,12 +26,10 @@ public:
 		return p->find(key);
 	}
 
-	template <typename T>
-	void draw(const T& key)
-	{
-		p->draw(p->find(key));
-	}
-
+	void draw(const int& key);
+	void draw(const std::string& key);
+	void drawChunk(unique_ptr<_sim>& sim, const AA::Pos& pos);
+	void present();
 	void loadAsset(const std::string& path);
 
 	//const _asset& getAsset(const std::string& asset) const;

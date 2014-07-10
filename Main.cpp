@@ -9,14 +9,14 @@
 #include "Facet_Sim.h"
 #include "Facet_Gfx.h"
 #include "Module.h"
+#include "Application.h"
 #include <SDL2\SDL_net.h>
 #include <bitset>
 #include <fstream>
 #include <cassert>
 #include <boost/range/adaptor/reversed.hpp>
+
 //#include <sstream>
-
-
 
 using boost::adaptors::reverse;
 std::ofstream logFile;
@@ -155,10 +155,15 @@ int main(int argc, char* argv[])
 
 	//testConfig();
 	//testNetMessenger();
-	test(testAssets, "Asset Test");
+	//test(testAssets, "Asset Test");
 	//testChunks();
 	//test(testFire,std::string("Fire"));
-	test(testGFX, "GFX Test");
+	//test(testGFX, "GFX Test");
+
+	auto app = wrap(new Application());
+	app->run();
+
+	SDL_Delay(1000);
 
 	logFile.close();
 	SDL_Quit();
