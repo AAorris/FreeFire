@@ -36,7 +36,25 @@ int main(int argc, char* argv[])
 	//SDL_LogSetOutputFunction(ffloger,)
 	typedef Tool_Configurable t_config;
 	logFile.open("log.txt");
+
+	/*---------------------
+	Main
+	---------------------*/
+
+	auto app = wrap(new Application());
+	app->run();
+
+	/*---------------------
+	UNIT TESTS
+	---------------------*/
+
+#define MAINTESTS
+#ifdef MAINTESTS
+#ifndef SDLINIT
+#define SDLINIT
 	SDL_Init(SDL_INIT_EVERYTHING);
+#endif
+#endif
 
 	/*---------------------
 	UNIT TEST DEFINITIONS
@@ -65,18 +83,18 @@ int main(int argc, char* argv[])
 		SDL_RenderPresent(ren);
 		SDL_Delay(2000);
 
-		int index = _asset::useLookup("fire_fighter.png");
-		SDL_Log("\nIndex was %d\n\n", index);
-		return index!=-1;
+//		int index = _asset::useLookup("fire_fighter.png");
+//		SDL_Log("\nIndex was %d\n\n", index);
+//		return index!=-1;
 	};
 
 	auto testGFX = []() {
 		auto gfx = wrap(new _gfx());
-		gfx->loadAsset("fire_fighter.png");
-		//gfx->setOrigin(0, 0);
-		//gfx->setScale(1);
-
-		//gfx->draw(1,)
+		auto path = "fire_fighter.png";
+		int id = 0;
+		gfx->loadAsset(path,++id);
+		gfx->draw(path);
+		gfx->present();
 		return true;
 	};
 
@@ -160,12 +178,12 @@ int main(int argc, char* argv[])
 	//test(testFire,std::string("Fire"));
 	//test(testGFX, "GFX Test");
 
-	auto app = wrap(new Application());
-	app->run();
-
 	SDL_Delay(1000);
 
 	logFile.close();
+#ifdef SDLINIT
+#undef SDLINIT
 	SDL_Quit();
+#endif
 	return 1;
 }

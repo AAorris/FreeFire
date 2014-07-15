@@ -21,6 +21,7 @@ private:
 
 public:
 	Tool_Configurable(const std::string& config_path);
+	Tool_Configurable(Tool_Configurable&& t);
 	~Tool_Configurable();
 
 	std::string serialize();

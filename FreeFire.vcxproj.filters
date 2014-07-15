@@ -93,6 +93,9 @@
     <ClCompile Include="Module_Fire.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="scalar.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Tool.h">
@@ -162,6 +165,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="PIMPL.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="scalar.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

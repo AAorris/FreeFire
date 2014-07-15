@@ -22,6 +22,9 @@ namespace AA {
 		int hash() const;
 		void x(short px);
 		void y(short py);
+		void dx(short _dx);
+		void dy(short _dy);
+		Pos operator+(const Pos& p);
 		Pos& operator=(const Pos& p);
 		bool operator==(const Pos& p);
 		Pos operator*(const Pos& p);
