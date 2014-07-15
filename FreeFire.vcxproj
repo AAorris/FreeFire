@@ -110,6 +110,7 @@
     <ClCompile Include="Role_Moderator.cpp" />
     <ClCompile Include="Role_Server.cpp" />
     <ClCompile Include="Role_TeamBoard.cpp" />
+    <ClCompile Include="scalar.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
     </ClCompile>
@@ -137,6 +138,7 @@
     <ClInclude Include="Role_Moderator.h" />
     <ClInclude Include="Role_Server.h" />
     <ClInclude Include="Role_TeamBoard.h" />
+    <ClInclude Include="scalar.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="Tool.h" />
     <ClInclude Include="Tool_Asset.h" />

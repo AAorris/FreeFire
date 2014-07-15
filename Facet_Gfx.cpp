@@ -7,141 +7,237 @@
 #include "PIMPL.h"
 
 struct IMPL {
-	typedef std::unordered_set< std::unique_ptr<_asset> > t_container;
-	typedef const std::unique_ptr<_asset>& i_container;
+	typedef std::unordered_set< _asset >	container_type;
+	typedef container_type::iterator		container_iterator;
+	typedef const _asset&					container_value;
 
-	std::unordered_map<std::string, sdl_uptr<SDL_Texture>> cached_chunks;
+	std::unordered_map<AA::Pos, sdl_uptr<SDL_Texture>> cached_chunks;
 
-	sdl_uptr<SDL_Window> window;
-	sdl_uptr<SDL_Renderer> renderer;
+	SDL_Window* window;
+	SDL_Renderer* renderer;
 
-	t_container assets;
+	container_type assets;
 
-	Impl() :
-		window{ SDL_CreateWindow("Window", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1024, 768, SDL_RENDERER_TARGETTEXTURE) },
-		renderer { SDL_CreateRenderer(window.get(),-1,SDL_RENDERER_ACCELERATED) }
+	int res;
+	double offsetX;
+	double offsetY;
+	double originX;
+	double originY;
+
+	Impl()
 	{
+		SDL_DisplayMode screen;
+		SDL_GetCurrentDisplayMode(0, &screen);
+
+		screen.w *= 0.8;
+		screen.h *= 0.8;
+
+		res = 32;
+		offsetX = 0;
+		offsetY = 0;
+		originX = screen.w / 2;
+		originY = screen.h / 2;
+
+		window = SDL_CreateWindow("Window", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, screen.w, screen.h, 0);
+		renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
 	}
 
-	t_container::iterator find(const int& n)
+	Impl(Impl&& i)
 	{
-		return std::find_if(
-			begin(assets), end(assets), 
-				[n](i_container a)
-				{
-					return a->id == n;
-				}
-		);
+		window = i.window;
+		renderer = i.renderer;
+		i.window = NULL;
+		i.renderer = NULL;
 	}
 
-	t_container::iterator find(const std::string& s)
+	Impl& operator=(const Impl& i) = delete;
+
+	~Impl() 
 	{
-		return std::find_if(
-			begin(assets), end(assets), 
-				[s](i_container it) {
-					return it->getPath() == s;	
-				}
-			);
+		if (window!=0)
+			SDL_DestroyWindow(window);
+		if (renderer!=0)
+			SDL_DestroyRenderer(renderer);
+	}
+
+	container_iterator find(const int& n)
+	{
+		auto test = [n](container_value i) { return i.id == n; };
+		return std::find_if(assets.begin(), assets.end(), test);
+	}
+
+	container_iterator find(const std::string& s)
+	{
+		auto test = [s](container_value i) { return i.getPath() == s; };
+		return std::find_if(assets.begin(), assets.end(), test);
+	}
+
+	void draw(SDL_Texture* tex, SDL_Rect r, bool isCellPos=false)
+	{
+		int screenW, screenH;
+		screenW = screenH = 0;
+
+		SDL_GetWindowSize(window, &screenW, &screenH);
+
+		r.y *= -1;
+
+		r.x += screenW / 2 - r.w/2;
+		r.y += screenH / 2 - r.h/2;
+
+		SDL_RenderCopy(renderer, tex, NULL, &r);
+		SDL_RenderDrawRect(renderer, &r);
 	}
 
 	void draw(int asset, int x, int y)
 	{
-		draw(find(asset), x, y);
+		draw(find(asset), x, y); 
 	}
 
-	void draw(t_container::iterator it, int x = 0, int y=0)
+	void draw(container_iterator it, int x = 0, int y=0)
 	{
 		if (it == end(assets))
 			return;
-		(*it)->draw(x,y);
+		it->draw(x,y);
 	}
 
-	void loadAsset(const std::string& s)
+	void drawCell(container_iterator it, int x = 0, int y = 0, int w=-1, int h=-1)
 	{
-		//s is signed with a unique index
-		char id = s[0] - '0';
-		std::string path = s.substr(1, s.size());
-		assets.insert(wrap( new _asset(path, renderer.get(), id) ));
+		if (it == end(assets))
+			return;
+		it->draw(x, y, w, h);
 	}
 
-	void cache(const std::string& chunkData)
+	void loadAsset(const std::string& s, int id)
 	{
-		auto tex = sdl_uptr<SDL_Texture>
-		{ 
-			SDL_CreateTexture(
-				renderer.get(), 
-				SDL_PIXELFORMAT_RGBA8888, 
-				SDL_TEXTUREACCESS_TARGET, 
-				CHUNK::width*GFX::res, 
-				CHUNK::height*GFX::res
-			)
-		};
-
-		SDL_SetRenderTarget(renderer.get(), tex.get());
-		for (int x = 0; x < CHUNK::width; x++)
-		{
-			for (int y = 0; y < CHUNK::height; y++)
-			{
-				int loc = x + CHUNK::width*y;
-				char asset = chunkData[loc];
-				if (asset > 0)
-				{
-					draw(asset, x, y);
-				}
-			}
-		}
-		SDL_SetRenderTarget(renderer.get(), NULL);
-
-		cached_chunks.insert(std::make_pair(chunkData,std::move(tex)));
+		assets.insert(_asset(s, renderer, id));
 	}
-
 	void drawChunk(const std::string& chunkData, const AA::Pos& pos)
 	{
+		SDL_Texture* cachedChunk = NULL;
+
+		SDL_SetRenderDrawColor(renderer, 60, 60, 60, 0);
+		if (cached_chunks.count(pos) == 0)
+		{
+			//create a texture you can draw to
+			cachedChunk =
+				SDL_CreateTexture(
+					renderer,
+					SDL_PIXELFORMAT_RGBA8888,
+					SDL_TEXTUREACCESS_TARGET,
+					CHUNK::width*res, CHUNK::height*res
+				)
+			;
+			if (cachedChunk==0)
+				SDL_ShowSimpleMessageBox(0, "error", SDL_GetError(), window);
+
+			using ptr = sdl_uptr<SDL_Texture>; //
+			auto key = pos;
+			cached_chunks.insert(
+				std::make_pair(
+					pos,
+					ptr{ std::move(cachedChunk) }
+				)
+			);
+		}
+		else {
+			cachedChunk = cached_chunks.at(pos).get();
+		}
+
+		if (SDL_SetRenderTarget(renderer, cachedChunk) == 0)
+		{
+			SDL_RenderClear(renderer);
+			auto cell = AA::Pos{ 0, 0 };
+			for (const char& c : chunkData) {
+				//
+				int _offset = res;
+				int _max = res*CHUNK::width;
+
+				drawCell(find((int)c), cell.x(), cell.y());
+
+				cell.dx(_offset);
+				if (cell.x() >= _max) {
+					cell.x(0);
+					cell.dy(_offset);
+				}
+				//
+			}
+			SDL_SetRenderTarget(renderer, NULL);
+		}
+		else {
+			//auto error = SDL_GetError();
+			SDL_ShowSimpleMessageBox(0, "error", SDL_GetError(), window);
+		}
+
+		auto r = SDL_Rect{
+			pos.x()*res*CHUNK::width,
+			pos.y()*res*CHUNK::height,
+			CHUNK::width*res,
+			CHUNK::height*res
+		};
+		SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+		draw(cachedChunk, r);
+		//SDL_RenderCopy(renderer, cachedChunk, NULL, &r);
+		//SDL_RenderDrawRect(renderer, &r);
 
 	}
 };
 
+/*--------------------------------------------------------*/
+
+CTOR() : p{ new Impl() } {
+	std::string error = SDL_GetError();
+	SDL_SetRenderDrawBlendMode(p->renderer, SDL_BLENDMODE_BLEND);
+
+	int screenW = 0;
+	int screenH = 0;
+	SDL_GetWindowSize(p->window, &screenW, &screenH);
+	originX = screenW / 2;
+	originY = screenH / 2;
+	offsetX = 0;
+	offsetY = 100;
+}
+DTOR() { SDL_DestroyRenderer(p->renderer); SDL_DestroyWindow(p->window); }
+
 //template <typename T>
-void CLASS::draw(const int& key)
+void draw(const int& key, int x, int y)
 {
 	if (key == 0)
 		return;
 	auto location = p->find(key);
-	if (location == end(p->assets))
-		return;
-	p->draw(location);
+	p->draw(location,x,y);
 }
 
 //template <typename T>
-void CLASS::draw(const std::string& key)
+void draw(const std::string& key, int x, int y)
 {
 	auto location = p->find(key);
-	if (location == end(p->assets))
-		return;
-	p->draw(location);
+	p->draw(location,x,y);
 }
 
-void CLASS::drawChunk(unique_ptr<_sim>& sim, const AA::Pos& pos)
+void draw(const AA::Pos& pos, char& id)
+{
+	auto& asset = p->find(id);
+	p->draw(asset, pos.x(), pos.y());
+}
+
+void clear()
+{
+	SDL_SetRenderDrawColor(p->renderer, 60, 60, 60, 255);
+	SDL_RenderClear(p->renderer);
+}
+
+void drawChunk(unique_ptr<_sim>& sim, const AA::Pos& pos)
 {
 	std::string chunkData = sim->getChunk(pos);
-	if (chunkData.size() == 16)
-	{
-		p->cache(chunkData);
-		p->drawChunk(chunkData, pos);
-	}
+	p->drawChunk(chunkData, pos);
 }
 
-/*--------------------------------------------------------*/
-
-CTOR() : p{ new Impl() } {}
-DTOR() {}
-
-void CLASS::loadAsset(const std::string& path)
+void loadAsset(const std::string& path, int key)
 {
-	p->loadAsset(path);
+	p->loadAsset(path,key);
 }
 
-void CLASS::present()
+void present()
 {
-	SDL_RenderPresent(p->renderer.get());
+	SDL_RenderPresent(p->renderer);
 }

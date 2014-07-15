@@ -46,6 +46,18 @@ namespace AA {
 
 	void Pos::x(short x) { _x = x; }
 	void Pos::y(short y) { _y = y; }
+	void Pos::dx(short _dx) { _x += _dx; }
+	void Pos::dy(short _dy) { _y += _dy; }
+
+	Pos Pos::operator+(const Pos& p)
+	{
+		Pos res = Pos(p.x() + x(), p.y() + y());
+		return res;
+	}
+	Pos Pos::operator*(const Pos& other)
+	{
+		return Pos(x()*other.x(),y()*other.y());
+	}
 
 	short Pos::radius() const {
 		return SDL_max(x(), y());

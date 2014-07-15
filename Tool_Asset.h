@@ -5,7 +5,6 @@ class Tool_Asset :
 	public Tool
 {
 private:
-	static std::vector<std::string> lookup;
 	class Impl;
 	std::unique_ptr<Impl> p;
 public:
@@ -18,9 +17,8 @@ public:
 	Tool_Asset(const Tool_Asset& c) = delete;
 	Tool_Asset(Tool_Asset&& other);
 	bool operator==(const Tool_Asset& a) const;
-	void draw(int x, int y) const;
-	std::string getPath();
-	static int useLookup(const std::string& s);
+	void draw(int x, int y, int w=-1, int h=-1) const;
+	std::string getPath() const;
 
 }; 
 
