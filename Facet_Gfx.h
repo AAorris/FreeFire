@@ -2,6 +2,7 @@
 #include "Facet.h"
 #include "Tool_Asset.h"
 #include "Facet_Sim.h"
+#include "scalar.h"
 #include <iosfwd>
 #include <unordered_set>
 
@@ -25,18 +26,17 @@ public:
 
 	void draw(const int& key, int x=0, int y=0);
 	void draw(const std::string& key, int x = 0, int y = 0);
-	void drawChunk(unique_ptr<_sim>& sim, const AA::Pos& pos);
 	void draw(const AA::Pos& pos, char& id);
 	void present();
 	void clear();
 	void loadAsset(const std::string& path, int id);
 
+	void zoomCamera(const double& dz);
+	void moveCamera(const scalar& dp);
+
 	//const _asset& getAsset(const std::string& asset) const;
 	//const _asset& getAsset(const int& asset) const;
 };
-
-#define OFFSET scalar(Facet_Gfx::offsetX, Facet_Gfx::offsetY);
-#define ORIGIN scalar(Facet_Gfx::originX, Facet_Gfx::originY);
 
 typedef Facet_Gfx _gfx;
 

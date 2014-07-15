@@ -19,7 +19,7 @@ using PT = boost::property_tree::ptree;
 #include "Module_Fire.h"
 
 #include "Facet_Sim.h"
-#include "Facetgfx->h"
+#include "Facet_Gfx.h"
 #include "scalar.h"
 
 
@@ -59,6 +59,7 @@ void Application::run()
 
 	auto keys = SDL_GetKeyboardState(NULL);
 	scalar v_camera{ 0, 0 };
+	double v_zoom = 0;
 	bool playing = true;
 
 	while (SDL_QuitRequested() == false && playing)
@@ -66,29 +67,29 @@ void Application::run()
 		keys = SDL_GetKeyboardState(NULL);
 
 		if (keys[SDL_SCANCODE_A])
-			v_camera.x += 0.4;
+			v_camera.x -= 0.01;
 		if (keys[SDL_SCANCODE_D])
-			v_camera.x -= 0.4;
+			v_camera.x += 0.01;
 		if (keys[SDL_SCANCODE_W])
-			v_camera.y += 0.4;
+			v_camera.y -= 0.01;
 		if (keys[SDL_SCANCODE_S])
-			v_camera.y -= 0.4;
+			v_camera.y += 0.01;
 		if (keys[SDL_SCANCODE_KP_PLUS]){
-			gfx->res++;
+			v_zoom += 0.02;
 		}
 		if (keys[SDL_SCANCODE_KP_MINUS]){
-			gfx->res--;
+			v_zoom -= 0.02;
 		}
 		if (keys[SDL_SCANCODE_ESCAPE])
 			playing = false;
 
-
-		gfx->offsetX += v_camera.x;
-		gfx->offsetY += v_camera.y;
+		gfx->moveCamera(v_camera);
+		gfx->zoomCamera(v_zoom);
 		v_camera *= 0.975;
+		v_zoom *= 0.975;
 
 		sim->put(AA::Pos(0, 0), 'F');
-		sim->put(AA::Pos(rand() % 100, rand() % 100), 'F');
+		sim->put(AA::Pos(rand() % 10, rand() % 10), 'F');
 		gfx->clear();
 		for (auto& item : sim->getMap())
 		{
