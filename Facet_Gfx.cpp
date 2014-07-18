@@ -2,6 +2,7 @@
 #include "Facet_Gfx.h"
 #include <algorithm>
 #include <unordered_map>
+#include "camera_data.h"
 
 #define CLASS Facet_Gfx
 #include "PIMPL.h"
@@ -21,6 +22,7 @@ struct IMPL {
 	double res;
 	scalar offset;
 	scalar origin;
+	scalar screenSize;
 	double zoom;
 
 	Impl()
@@ -28,8 +30,10 @@ struct IMPL {
 		SDL_DisplayMode screen;
 		SDL_GetCurrentDisplayMode(0, &screen);
 
-		screen.w *= 0.8;
-		screen.h *= 0.8;
+		screen.w *= 1;
+		screen.h *= 1;
+
+		screenSize = scalar{ double(screen.w), double(screen.h) };
 
 		res = 32;
 		offset.x = 0;
@@ -81,7 +85,8 @@ struct IMPL {
 		view *= res*zoom;
 		view += offset+origin;
 
-		it->draw(view.x, view.y,res*zoom,res*zoom); 
+		if (it != assets.end())
+			it->draw(view.x, view.y,res*zoom,res*zoom); 
 	}
 
 	void loadAsset(const std::string& s, int id){
@@ -100,12 +105,16 @@ DTOR() { SDL_DestroyRenderer(p->renderer); SDL_DestroyWindow(p->window); }
 void CLASS::zoomCamera(const double& dz)
 {
 	p->zoom += dz;
+	p->zoom = SDL_max(p->zoom,4.0/p->res); //zoom should not be lower than 1.0/res
 }
 void CLASS::moveCamera(const scalar& dp)
 {
-	p->offset += dp;
+	p->offset += dp/(p->res*p->zoom);
 }
-
+camera_data CLASS::getCamera()
+{
+	return camera_data(p->origin, p->offset, p->screenSize, p->zoom, p->res);
+}
 //template <typename T>
 void CLASS::draw(const int& key, int x, int y)
 {
@@ -125,7 +134,8 @@ void CLASS::draw(const std::string& key, int x, int y)
 void CLASS::draw(const AA::Pos& pos, char& id)
 {
 	auto& asset = p->find(id);
-	p->draw(asset, pos.x(), pos.y());
+	if (asset != end(p->assets))
+		p->draw(asset, pos.x(), pos.y());
 }
 
 void CLASS::clear()
@@ -143,3 +153,4 @@ void CLASS::present()
 {
 	SDL_RenderPresent(p->renderer);
 }
+ 

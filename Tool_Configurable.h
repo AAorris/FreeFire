@@ -35,3 +35,5 @@ public:
 	template <typename T> void put(const T& t)			{ p->put<T>(t);			}
 
 };
+
+typedef Tool_Configurable _cfg;
