@@ -134,8 +134,8 @@ int main(int argc, char* argv[])
 		}; // testfire draw
 
 //		fireModule.sync(sim->getMap);
-		sim->saveState("autosave.map");
-		fireModule.loadState("autosave.map");
+		//sim->saveState("autosave.map");
+		//fireModule.loadState("autosave.map");
 		int time = 0;
 		while (time < 1000 * 100)
 		{

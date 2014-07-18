@@ -69,7 +69,8 @@ namespace AA {
 	instead of spiralling, it kind of criss crosses around the
 	rings.*/
 	int Pos::hash() const {
-		std::bitset<7> mx = { static_cast<_ULonglong>(abs(x())) };
+		return x() + (y()<<8);
+		/*std::bitset<7> mx = { static_cast<_ULonglong>(abs(x())) };
 		std::bitset<7> my = { static_cast<_ULonglong>(abs(y())) };
 		std::bitset<16> p = {};
 
@@ -80,7 +81,7 @@ namespace AA {
 			p[(2*i)+2] = mx.test(i);
 			p[(2*i)+2 + 1] = my.test(i);
 		}
-		return p.to_ulong();
+		return p.to_ulong();*/
 	}
 
 	bool Pos::operator==(const Pos& p)

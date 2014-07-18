@@ -3,8 +3,11 @@
 #include "Tool_Asset.h"
 #include "Facet_Sim.h"
 #include "scalar.h"
+#include "camera_data.h"
 #include <iosfwd>
 #include <unordered_set>
+
+
 
 class Facet_Gfx :
 	public Facet
@@ -33,12 +36,14 @@ public:
 
 	void zoomCamera(const double& dz);
 	void moveCamera(const scalar& dp);
+	camera_data getCamera();
 
 	//const _asset& getAsset(const std::string& asset) const;
 	//const _asset& getAsset(const int& asset) const;
 };
 
 typedef Facet_Gfx _gfx;
+
 
 namespace SDL {
 	template<> struct default_delete<SDL_Renderer> {

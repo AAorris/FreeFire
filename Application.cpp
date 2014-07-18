@@ -58,48 +58,93 @@ void Application::run()
 	sim->loadState(mapPath);
 
 	auto keys = SDL_GetKeyboardState(NULL);
+	int mousex = 0;
+	int mousey = 0;
+	SDL_GetMouseState(&mousex,&mousey);
 	scalar v_camera{ 0, 0 };
 	double v_zoom = 0;
 	bool playing = true;
+	SDL_Event e;
+
+	const int size = 100;
+	const double coverage = 1.0;
+	for (int i = 0; i < int(size*size*coverage); i++)
+		sim->put(AA::Pos(rand() % size - size / 2, rand() % size - size/2), '3');
+	for (int i = 0; i < int(size*size*coverage); i++)
+		sim->put(AA::Pos(rand() % size - size / 2, rand() % size - size/2), '4');
 
 	while (SDL_QuitRequested() == false && playing)
 	{
+		auto mouse = SDL_GetMouseState(&mousex, &mousey);
 		keys = SDL_GetKeyboardState(NULL);
 
-		if (keys[SDL_SCANCODE_A])
-			v_camera.x -= 0.01;
-		if (keys[SDL_SCANCODE_D])
-			v_camera.x += 0.01;
-		if (keys[SDL_SCANCODE_W])
-			v_camera.y -= 0.01;
-		if (keys[SDL_SCANCODE_S])
-			v_camera.y += 0.01;
-		if (keys[SDL_SCANCODE_KP_PLUS]){
-			v_zoom += 0.02;
-		}
-		if (keys[SDL_SCANCODE_KP_MINUS]){
-			v_zoom -= 0.02;
-		}
+		auto v_camera1 = v_camera;
+		if (keys[SDL_SCANCODE_A] || keys[SDL_SCANCODE_LEFT])
+			v_camera.x -= 1;
+		if (keys[SDL_SCANCODE_D] || keys[SDL_SCANCODE_RIGHT])
+			v_camera.x += 1;
+		if (keys[SDL_SCANCODE_W] || keys[SDL_SCANCODE_UP])
+			v_camera.y -= 1;
+		if (keys[SDL_SCANCODE_S] || keys[SDL_SCANCODE_DOWN])
+			v_camera.y += 1;
+		if (keys[SDL_SCANCODE_KP_PLUS])
+			v_zoom += 0.005;
+		if (keys[SDL_SCANCODE_KP_MINUS])
+			v_zoom -= 0.005;
 		if (keys[SDL_SCANCODE_ESCAPE])
 			playing = false;
 
-		gfx->moveCamera(v_camera);
-		gfx->zoomCamera(v_zoom);
-		v_camera *= 0.975;
-		v_zoom *= 0.975;
+		while (SDL_PollEvent(&e))
+		{
+			if (e.type == SDL_MOUSEWHEEL)
+			{
+				if (abs(e.wheel.y) > 0)
+					v_zoom += 0.03*e.wheel.y;
+			}
 
-		sim->put(AA::Pos(0, 0), 'F');
-		sim->put(AA::Pos(rand() % 10, rand() % 10), 'F');
+			if (e.type == SDL_MOUSEMOTION)
+			{
+				if (mouse&SDL_BUTTON_MMASK)
+				{
+					v_camera = scalar(-e.motion.xrel, -e.motion.yrel);
+					gfx->moveCamera( scalar(-e.motion.xrel, -e.motion.yrel) );
+				}
+			}
+
+			if (e.type == SDL_KEYUP)
+			{
+			}
+		}
+
+		if ((mouse&SDL_BUTTON_MMASK)==0){
+			gfx->moveCamera(v_camera);
+			if (v_camera1 == v_camera)
+				v_camera *= 0.9;
+		}
+
+		gfx->zoomCamera(v_zoom);
+
+		v_zoom *= 0.9;
 		gfx->clear();
-		for (auto& item : sim->getMap())
+
+		sim->put(AA::Pos(rand() % size - size / 2, rand() % size - size / 2), 'F');
+
+		auto set = sim->getMap();
+		
+		for (auto& item : *set)
 		{
 			auto location = item.first;
 			auto& value = item.second;
 			gfx->draw(location, value);
 		}
+
 		gfx->present();
+
+		long ticks = SDL_GetTicks();
 		sim->update();
-		SDL_Delay(16);
+		long ticks2 = SDL_GetTicks();
+		int delay = 16 - (ticks2 - ticks);
+		if (delay > 0) SDL_Delay(delay);
 	}
 
 //	gfx->draw(assets[0]);

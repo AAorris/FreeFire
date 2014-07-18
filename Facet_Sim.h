@@ -1,6 +1,8 @@
 #pragma once
 #include "Facet.h"
 #include "Tool_Pos.h"
+#include "Facet_Gfx.h"
+#include "camera_data.h"
 
 namespace CHUNK {
 	const static short res = 4;
@@ -46,9 +48,11 @@ public:
 	//and only does so if the hash is either -1, or equal to the hash of the same area
 	//int hashArea(const int& pos, const int& radius);
 	//std::string getItems(const int& pos, const int& radius=-1, const int& hash=-1);
-	typedef std::unordered_map<AA::Pos,char> mapUpdate;
+	typedef std::map<AA::Pos,char> mapUpdate;
 	
-	mapUpdate& getMap();
+	//mapUpdate& getMap();
+	mapUpdate* getMap();
+	mapUpdate getInCamera(camera_data cam);
 	//mapUpdate getMap(long layers = -1, const AA::Pos& focus = AA::Pos{}, const int& chunkRings = -1);
 
 
@@ -57,6 +61,12 @@ public:
 	//void loadInstance(const std::string& path);
 	
 };
+
+std::ostream& operator<<(std::ostream& s, const scalar& val);
+
+std::istream& operator>>(std::istream& is, scalar& val);
+
+
 
 typedef Facet_Sim t_sim;
 typedef Facet_Sim _sim;

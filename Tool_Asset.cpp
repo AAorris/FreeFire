@@ -22,13 +22,16 @@ public:
 
 	int x;
 	int y;
-
+	int w;
+	int h;
+	
 	Impl(std::string p_path, SDL_Renderer* p_ren)
 	{
 		path = p_path;
 		renderer = p_ren;
 		auto ptr = sdlWrap(IMG_Load(p_path.c_str()));
 		texture = SDL_CreateTextureFromSurface(p_ren, ptr.get());
+		SDL_QueryTexture(texture, NULL, NULL, &w, &h);
 	}
 	~Impl(){ if(texture!=NULL) SDL_DestroyTexture(texture); }
 
@@ -37,12 +40,15 @@ public:
 		draw(x, y, -1, -1);
 	}
 
-	void draw(int x, int y, int w=-1, int h=-1) const
+	void draw(int _x=-1, int _y=-1, int _w=-1, int _h=-1) const
 	{
-		SDL_Rect rdst = { x, y, w, h };
-		if (SDL_min(w,h)<1)
-			SDL_QueryTexture(texture, NULL, NULL, &rdst.w, &rdst.h);
-		if (SDL_RenderCopy(renderer, texture, NULL, &rdst)==0) return;
+		SDL_Rect r = {
+			(_x == -1) ? x : _x,
+			(_y == -1) ? y : _y,
+			(_w == -1) ? w : _w,
+			(_h == -1) ? h : _h
+		};
+		if (SDL_RenderCopy(renderer, texture, NULL, &r)==0) return;
 		else {
 			enum UNINITIALIZED_ASSET{ ERROR };
 			throw ERROR;

@@ -95,6 +95,7 @@
   <ItemGroup>
     <ClCompile Include="Application.cpp" />
     <ClCompile Include="Application_FreeFire.cpp" />
+    <ClCompile Include="camera_data.cpp" />
     <ClCompile Include="Client.cpp" />
     <ClCompile Include="Facet.cpp" />
     <ClCompile Include="Facet_Cfg.cpp" />
@@ -122,14 +123,17 @@
     <ClCompile Include="Tool_UIElement.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Algorithms.h" />
     <ClInclude Include="Application.h" />
     <ClInclude Include="Application_FreeFire.h" />
+    <ClInclude Include="camera_data.h" />
     <ClInclude Include="Facet.h" />
     <ClInclude Include="Facet_Cfg.h" />
     <ClInclude Include="Facet_Gfx.h" />
     <ClInclude Include="Facet_Net.h" />
     <ClInclude Include="Facet_Sim.h" />
     <ClInclude Include="Facet_UI.h" />
+    <ClInclude Include="Geometry.h" />
     <ClInclude Include="Module.h" />
     <ClInclude Include="Module_Fire.h" />
     <ClInclude Include="PIMPL.h" />
