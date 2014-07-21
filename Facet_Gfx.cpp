@@ -8,9 +8,13 @@
 #include "PIMPL.h"
 
 struct IMPL {
-	typedef std::unordered_set< _asset >	container_type;
-	typedef container_type::iterator		container_iterator;
-	typedef const _asset&					container_value;
+	using container_type = std::unordered_multimap<char, _asset>;
+	using search_type = std::pair<container_type::iterator, container_type::iterator>;
+	using search_result = container_type::iterator;
+	using potential_result = boost::optional<search_result>;
+	//typedef std::unordered_set< _asset >	container_type;
+	//typedef container_type::iterator		container_iterator;
+	//typedef const _asset&					container_value;
 
 	std::unordered_map<AA::Pos, sdl_uptr<SDL_Texture>> cached_chunks;
 
@@ -66,31 +70,56 @@ struct IMPL {
 			SDL_DestroyRenderer(renderer);
 	}
 
-	container_iterator find(const int& n)
+	/*Get a tile's type and find it's asset pool.*/
+	potential_result find(const char& id)
 	{
-		auto test = [n](container_value i) { return i.id == n; };
-		return std::find_if(assets.begin(), assets.end(), test);
+		int preferredSize = res*zoom;
+
+		search_type result = assets.equal_range(id);
+		
+		potential_result selected{};
+		unsigned int selectedDistance = -1;
+
+		if (std::distance(result.first, result.second) > 0) {
+			for (auto it = result.first; it != result.second; ++it)
+			{
+				int distance = abs(it->second.getSize() - preferredSize);
+				if (distance < selectedDistance)
+				{
+					selectedDistance = distance;
+					selected = it;
+				}
+			}
+		}
+		return selected;
+		//auto test = [n](container_value i) { return i.id == n; };
+		//return std::find_if(assets.begin(), assets.end(), test);
 	}
 
-	container_iterator find(const std::string& s)
-	{
-		auto test = [s](container_value i) { return i.getPath() == s; };
-		return std::find_if(assets.begin(), assets.end(), test);
-	}
+	void draw(potential_result const& item, const scalar& location){
 
-	void draw(container_iterator it, int x = 0, int y = 0){
-		scalar view{ double(x), double(-y) };
+		if (!item.is_initialized())
+			throw std::range_error("Search for item failed!");
 
+		scalar view{ double(location.x), double(-location.y) };
 		view -= offset;
 		view *= res*zoom;
 		view += offset+origin;
 
-		if (it != assets.end())
-			it->draw(view.x, view.y,res*zoom,res*zoom); 
+		int size = res*zoom;
+
+		(*item)->second.draw(location.x, location.y, size, size);
+
 	}
 
-	void loadAsset(const std::string& s, int id){
-		assets.insert(_asset(s, renderer, id));
+	void loadAsset(const std::string& s, char id){
+		assets.insert(
+			std::make_pair(
+				id,
+				_asset(s, renderer)
+			)
+		);
+		//assets.insert(_asset(s, renderer, id));
 	}
 };
 
@@ -111,31 +140,35 @@ void CLASS::moveCamera(const scalar& dp)
 {
 	p->offset += dp/(p->res*p->zoom);
 }
-camera_data CLASS::getCamera()
+cameraTool_Data CLASS::getCamera()
 {
-	return camera_data(p->origin, p->offset, p->screenSize, p->zoom, p->res);
-}
-//template <typename T>
-void CLASS::draw(const int& key, int x, int y)
-{
-	if (key == 0)
-		return;
-	auto location = p->find(key);
-	p->draw(location,x,y);
+	return cameraTool_Data(p->origin, p->offset, p->screenSize, p->zoom, p->res);
 }
 
-//template <typename T>
-void CLASS::draw(const std::string& key, int x, int y)
+void CLASS::connect(Tool_Data* to)
 {
-	auto location = p->find(key);
-	p->draw(location,x,y);
+	if (p->assets.count(to->id) == 0)
+	{
+		for (auto path : to->assets)
+		{
+			char type = to->id;
+			p->loadAsset(path, type);
+		}
+	}
 }
 
-void CLASS::draw(const AA::Pos& pos, char& id)
+void CLASS::draw(Tool_Data* data)
 {
-	auto& asset = p->find(id);
-	if (asset != end(p->assets))
-		p->draw(asset, pos.x(), pos.y());
+	auto& pos = data->pos;
+	int size = p->res * p->zoom;
+	auto query = p->find(data->id);
+	p->draw(query, pos*size);
+}
+
+void CLASS::draw(const char& id, const scalar& pos)
+{
+	auto& query = p->find(id);
+	p->draw(query, pos);
 }
 
 void CLASS::clear()

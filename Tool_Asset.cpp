@@ -37,7 +37,12 @@ public:
 
 	void draw(int x, int y) const
 	{
-		draw(x, y, -1, -1);
+		if (renderer != NULL) {
+			draw(x, y, -1, -1);
+		}
+		else {
+			throw std::runtime_error("Asset not given renderer");
+		}
 	}
 
 	void draw(int _x=-1, int _y=-1, int _w=-1, int _h=-1) const
@@ -57,14 +62,18 @@ public:
 
 }; 
 
-CTOR(const std::string& path, void* ren, int pid) :
-	p{ new IMPL{ path, (SDL_Renderer*)ren } },
-	id{pid}
+CTOR(const std::string& path, void* ren = NULL) :
+	p{ new IMPL{ path, static_cast<SDL_Renderer*>(ren) } }
 {
 }
 
 DTOR()
 {
+}
+
+int CLASS::getSize() const
+{
+	return (p->w + p->h) / 2;
 }
 
 void CLASS::draw(int x, int y, int w, int h) const
@@ -74,12 +83,11 @@ void CLASS::draw(int x, int y, int w, int h) const
 
 bool CLASS::operator==(const CLASS& c) const
 {
-	return c.id == id;
+	return p->path == c.getPath();
 }
 
 CLASS::CLASS(CLASS&& other) : p{ std::move(other.p) }
 {
-	id = other.id;
 }
 
 std::string CLASS::getPath() const

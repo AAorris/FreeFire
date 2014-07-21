@@ -4,6 +4,7 @@
 #include "Facet_Sim.h"
 #include "scalar.h"
 #include "camera_data.h"
+#include "Tool_Data.h"
 #include <iosfwd>
 #include <unordered_set>
 
@@ -27,16 +28,16 @@ public:
 		return p->find(key);
 	}
 
-	void draw(const int& key, int x=0, int y=0);
-	void draw(const std::string& key, int x = 0, int y = 0);
-	void draw(const AA::Pos& pos, char& id);
+	void connect(Tool_Data* to);
+	void draw(const char& id, const scalar& pos);
+	void draw(Tool_Data* data);
 	void present();
 	void clear();
 	void loadAsset(const std::string& path, int id);
 
 	void zoomCamera(const double& dz);
 	void moveCamera(const scalar& dp);
-	camera_data getCamera();
+	cameraTool_Data getCamera();
 
 	//const _asset& getAsset(const std::string& asset) const;
 	//const _asset& getAsset(const int& asset) const;

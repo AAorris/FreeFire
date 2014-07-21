@@ -1,39 +1,31 @@
 #pragma once
 
 #include "Tool.h"
-#include <boost\property_tree\ptree_fwd.hpp>
+#include <boost/property_tree/ptree.hpp>
 
-class Tool_Configurable :
-	public Tool
+class Tool_Configurable
 {
-private:
-	class Impl
-	{
-	public:
-		Impl();
-		//document me
-		std::unique_ptr<boost::property_tree::ptree> data;
-		void load(const std::string& config_path);
-	};
-	std::unique_ptr<Impl> p;
-
-	Tool_Configurable(const Tool_Configurable&) = delete;
-
 public:
-	Tool_Configurable(const std::string& config_path);
-	Tool_Configurable(Tool_Configurable&& t);
-	~Tool_Configurable();
+	using config_type = boost::property_tree::ptree;
+	using value_type = std::string;
+	config_type data;
 
-	std::string serialize();
-	std::ostream& operator << (std::ostream& os);
-	std::vector<std::string> getAssets();
-
-	//template <typename T> T get(const std::string& s)	{ return p->get<T>(s);	}
-	std::string get(const std::string& s);
-	boost::property_tree::ptree getT(const std::string& s);
-
-	template <typename T> void put(const T& t)			{ p->put<T>(t);			}
-
+	Tool_Configurable();
+	Tool_Configurable(config_type& input);
+	Tool_Configurable(const std::string& path);
+	Tool_Configurable(Tool_Configurable&& c);
+	~Tool_Configurable() = default;
+	std::string getData(const std::string& path="");
+	config_type* operator->();
+	config_type operator*();
+	config_type::iterator begin();
+	config_type::iterator end();
 };
 
 typedef Tool_Configurable _cfg;
+
+std::ostream& operator << (std::ostream& s, _cfg& c);
+std::istream& operator >> (std::istream& s, _cfg& c);
+
+//Tool_Data&& createTool_Data(const _cfg& template, )
+//std::string getPath(const _cfg::config_type& tree, const _cfg::config_type& node);

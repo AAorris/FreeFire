@@ -45,17 +45,19 @@ void Application::run()
 	auto sim = wrap(new _sim{});
 
 
-	auto config = wrap(new Tool_Configurable("config.INFO"));
-	auto assets = config->getAssets();
-	for (auto it = begin(assets); it != end(assets); ++it) {
-		auto key = it->at(0);
-		*it = std::move(it->substr(1, it->size() - 1)); //cut the first character out
-		gfx->loadAsset(*it,key);
+	auto config = Tool_Configurable("config.INFO");
+
+	for (auto item : config->get_child("Templates"))
+	{
+		gfx->loadAsset(item.second.get<std::string>("asset"), item.second.get<char>("id"));
 	}
 
-	std::string mapPath = config->get("Map");
+	std::string mapPath = config->get<std::string>("Map");
 	
-	sim->loadState(mapPath);
+	for (auto item : config->get_child("Map"))
+	{
+		SDL_Log("%s, %s", item.first.data(), item.second.data());
+	}
 
 	auto keys = SDL_GetKeyboardState(NULL);
 	int mousex = 0;
@@ -68,10 +70,10 @@ void Application::run()
 
 	const int size = 100;
 	const double coverage = 1.0;
-	for (int i = 0; i < int(size*size*coverage); i++)
-		sim->put(AA::Pos(rand() % size - size / 2, rand() % size - size/2), '3');
-	for (int i = 0; i < int(size*size*coverage); i++)
-		sim->put(AA::Pos(rand() % size - size / 2, rand() % size - size/2), '4');
+	//for (int i = 0; i < int(size*size*coverage); i++)
+		//sim->put(AA::Pos(rand() % size - size / 2, rand() % size - size/2), '3');
+	//for (int i = 0; i < int(size*size*coverage); i++)
+		//sim->put(AA::Pos(rand() % size - size / 2, rand() % size - size/2), '4');
 
 	while (SDL_QuitRequested() == false && playing)
 	{
@@ -127,21 +129,21 @@ void Application::run()
 		v_zoom *= 0.9;
 		gfx->clear();
 
-		sim->put(AA::Pos(rand() % size - size / 2, rand() % size - size / 2), 'F');
+		//sim->put(AA::Pos(rand() % size - size / 2, rand() % size - size / 2), 'F');
 
-		auto set = sim->getMap();
+	//	auto set = sim->getMap();
 		
-		for (auto& item : *set)
+		//for (auto& item : *set)
 		{
-			auto location = item.first;
-			auto& value = item.second;
-			gfx->draw(location, value);
+		//	auto location = item.first;
+		//	auto& value = item.second;
+		//	gfx->draw(location, value);
 		}
 
 		gfx->present();
 
 		long ticks = SDL_GetTicks();
-		sim->update();
+		//sim->update();
 		long ticks2 = SDL_GetTicks();
 		int delay = 16 - (ticks2 - ticks);
 		if (delay > 0) SDL_Delay(delay);
