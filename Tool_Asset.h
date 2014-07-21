@@ -5,21 +5,21 @@ class Tool_Asset :
 	public Tool
 {
 private:
+	//PIMPL
 	class Impl;
 	std::unique_ptr<Impl> p;
 public:
 
-	int id;
-	//std::string path;
-
-	Tool_Asset(const std::string& s, void* ren, int pid=-1);
+	Tool_Asset(const std::string& s, void * ren );
 	virtual ~Tool_Asset();
 	Tool_Asset(const Tool_Asset& c) = delete;
 	Tool_Asset(Tool_Asset&& other);
+	static Tool_Asset make_item(const std::string& label, const std::string& path);
 	bool operator==(const Tool_Asset& a) const;
+	bool operator<(const Tool_Asset& a) const;
 	void draw(int x, int y, int w=-1, int h=-1) const;
 	std::string getPath() const;
-
+	int getSize() const;
 }; 
 
 typedef Tool_Asset _asset;
@@ -28,7 +28,7 @@ namespace std {
 	template<> struct hash<_asset>
 	{
 		size_t operator()(const _asset& asset) 
-		{ return asset.id; }
+		{ return std::hash<std::string>()(asset.getPath()); }
 	};
 }
 

@@ -27,9 +27,9 @@ namespace FF{
 		void operator()(std::string message, Listener* listener) const {
 			std::cout << "Tool_Messenger.h can't translate : " << message;
 		}
-	};*/
+	};
 	template <> struct translate<Module_Fire, Facet_Sim> {
-		std::string operator()(std::string message, t_sim* listener) {
+		std::string operator()(std::string message, _sim* listener) {
 			std::stringstream ss;
 			if (message.substr(0, 1) == "F") {
 				ss << message;
@@ -44,7 +44,7 @@ namespace FF{
 			}
 			return ss.str();
 		}
-	};
+	};*/
 }
 
 typedef Module_Fire Fire;

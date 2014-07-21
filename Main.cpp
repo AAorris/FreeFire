@@ -5,6 +5,8 @@
 #include "Tool_Asset.h"
 #include "Tool_Messenger.h"
 #include "Tool_Pos.h"
+#include "Tool_Data.h"
+#include "DataTranslator.h"
 #include "Module_Fire.h"
 #include "Facet_Sim.h"
 #include "Facet_Gfx.h"
@@ -15,7 +17,7 @@
 #include <fstream>
 #include <cassert>
 #include <boost/range/adaptor/reversed.hpp>
-
+#include <string>
 //#include <sstream>
 
 using boost::adaptors::reverse;
@@ -41,8 +43,8 @@ int main(int argc, char* argv[])
 	Main
 	---------------------*/
 
-	auto app = wrap(new Application());
-	app->run();
+	//auto app = wrap(new Application());
+	//app->run();
 
 	/*---------------------
 	UNIT TESTS
@@ -60,8 +62,9 @@ int main(int argc, char* argv[])
 	UNIT TEST DEFINITIONS
 	---------------------*/
 	auto testConfig = [](){
-		auto config = wrap(new t_config("test.info"));
-		std::string data = config->serialize();
+		auto config = t_config("test.info");
+		std::string data = config.getData();
+		return true;
 	};
 
 	auto testNetMessenger = [](){
@@ -92,14 +95,14 @@ int main(int argc, char* argv[])
 		auto gfx = wrap(new _gfx());
 		auto path = "fire_fighter.png";
 		int id = 0;
-		gfx->loadAsset(path,++id);
-		gfx->draw(path);
-		gfx->present();
+		//gfx->loadAsset(path,++id);
+		//gfx->draw(id);
+		//gfx->present();
 		return true;
 	};
 
 	auto testChunks = []() {
-		auto sim = wrap(new t_sim());
+		/*auto sim = wrap(new t_sim());
 		using AA::Pos;
 		//sim->put(Pos(1, 0), 0xA);
 		//sim->put(Pos(2, 0), 0xC);
@@ -109,17 +112,51 @@ int main(int argc, char* argv[])
 		sim->putChunk(cs, Pos(1,0));
 		std::string cs2 = sim->getChunk(Pos(1, 0));
 		assert(cs2 == cs);
-		return true;
+		return true;*/
 	};
 
 	auto testFire = [](){
-		using AA::Pos;
+		//using AA::Pos;
 
-		SDL_Renderer* ren;
-		SDL_Window* win;
-		SDL_CreateWindowAndRenderer(600, 600, 0, &win, &ren);
+		//SDL_Renderer* ren;
+		//SDL_Window* win;
+		//SDL_CreateWindowAndRenderer(600, 600, 0, &win, &ren);
 
-		auto a_fire = wrap(new Tool_Asset{ "fire.png", ren });
+		auto sim = _sim{};
+		auto gfx = wrap(new _gfx{});
+
+		using ptree = boost::property_tree::ptree;
+
+		_cfg sessionConfig = _cfg{ "config.INFO" };
+		std::map<char, _cfg> templates;
+		std::vector<Tool_Data> dataContainer;
+
+		DataTranslator tr{};
+		for (auto item : sessionConfig->get_child("Templates"))
+		{
+			std::string group = item.first;
+			auto key = item.second.get_value<char>();
+			templates.insert(std::make_pair(
+				key,
+				_cfg{ item.second }
+			));
+		}
+
+		for (auto item : sessionConfig->get_child("Map"))
+		{
+			char key = item.first.front();
+			scalar pos = scalar{ item.second.data() };
+			auto newData = create_data(*templates[key], tr, pos);
+			gfx->connect(&newData);
+			gfx->draw(&newData);
+		}
+		gfx->present();
+		SDL_Delay(3000);
+		
+		//sim.set(scalar(1, 1), 'f');
+		//sim.update(10000);
+		//auto neighborhood = sim.around(scalar(1, 1));
+		/*auto a_fire = wrap(new Tool_Asset{ "fire.png", ren });
 		auto fireModule = Module_Fire{};
 		auto sim = wrap(new Facet_Sim{});
 		sim->putChunk("F000 F000 F000 F000", Pos(0, 0));
@@ -156,7 +193,7 @@ int main(int argc, char* argv[])
 
 			SDL_Delay(16);
 		}
-
+		*/
 		return true;
 	}; // testfire
 
@@ -171,11 +208,11 @@ int main(int argc, char* argv[])
 	MAIN
 	---------------------*/
 
-	//testConfig();
+	//test(testConfig, "Config Test");
 	//testNetMessenger();
 	//test(testAssets, "Asset Test");
 	//testChunks();
-	//test(testFire,std::string("Fire"));
+	test(testFire,std::string("Fire"));
 	//test(testGFX, "GFX Test");
 
 	SDL_Delay(1000);

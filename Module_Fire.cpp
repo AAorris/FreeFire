@@ -100,7 +100,7 @@ void Fire::startFire(const AA::Pos& where)
 
 void Fire::loadState(const std::string& fp)
 {
-	std::ifstream f {fp};
+	/*std::ifstream f {fp};
 	short x, y;
 	std::string chunk;
 
@@ -116,7 +116,7 @@ void Fire::loadState(const std::string& fp)
 			if (c == 'F')
 				startFire(tpos);
 		}
-	}
+	}*/
 }
 
 void Fire::update(const int& step)

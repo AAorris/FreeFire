@@ -97,6 +97,7 @@
     <ClCompile Include="Application_FreeFire.cpp" />
     <ClCompile Include="camera_data.cpp" />
     <ClCompile Include="Client.cpp" />
+    <ClCompile Include="DataTranslator.cpp" />
     <ClCompile Include="Facet.cpp" />
     <ClCompile Include="Facet_Cfg.cpp" />
     <ClCompile Include="Facet_Gfx.cpp" />
@@ -118,6 +119,7 @@
     <ClCompile Include="Tool.cpp" />
     <ClCompile Include="Tool_Asset.cpp" />
     <ClCompile Include="Tool_Configurable.cpp" />
+    <ClCompile Include="Tool_Data.cpp" />
     <ClCompile Include="Tool_Messenger.cpp" />
     <ClCompile Include="Tool_Pos.cpp" />
     <ClCompile Include="Tool_UIElement.cpp" />
@@ -127,6 +129,7 @@
     <ClInclude Include="Application.h" />
     <ClInclude Include="Application_FreeFire.h" />
     <ClInclude Include="camera_data.h" />
+    <ClInclude Include="DataTranslator.h" />
     <ClInclude Include="Facet.h" />
     <ClInclude Include="Facet_Cfg.h" />
     <ClInclude Include="Facet_Gfx.h" />
@@ -147,6 +150,7 @@
     <ClInclude Include="Tool.h" />
     <ClInclude Include="Tool_Asset.h" />
     <ClInclude Include="Tool_Configurable.h" />
+    <ClInclude Include="Tool_Data.h" />
     <ClInclude Include="Tool_Messenger.h" />
     <ClInclude Include="Tool_Pos.h" />
     <ClInclude Include="Tool_UIElement.h" />

@@ -1,0 +1,33 @@
+Templates {
+	Unit 1 {
+		asset "fire_fighter.png" {
+			small "fire_breaker-small.png"
+		}
+		flags {
+		}
+	}
+	Unit 2 {
+		asset "fire_breaker.png" {
+			small "fire_breaker-small.png"
+		}
+	}
+	Object 3 {
+		asset "tree.png" 
+		flags {
+			burnable 1
+		}
+	}
+	Object 4 {
+		asset "pine_tree.png"
+	}
+	Fire F {
+		asset "fire.png"
+	}
+}
+Map {
+	1 "0 0"
+	F "1 0"
+	1 "2 0"
+	3 "3 0"
+	4 "4 0"
+}
