@@ -1,12 +1,22 @@
 #pragma once
 #include "stdafx.h"
-//#include "Role.h"
+
+#define DISABLE 0
+#define ENABLE 1
+#define TEST 2
+
+#define CONFIG		ENABLE
+#define NET			DISABLE
+#define ASSETS		ENABLE
+#define GFX			ENABLE
+#define FIRE		ENABLE
+#define CHUNKS		DISABLE
+
 #include "Tool_Configurable.h"
 #include "Tool_Asset.h"
 #include "Tool_Messenger.h"
 #include "Tool_Pos.h"
 #include "Tool_Data.h"
-#include "DataTranslator.h"
 #include "Module_Fire.h"
 #include "Facet_Sim.h"
 #include "Facet_Gfx.h"
@@ -42,31 +52,36 @@ int main(int argc, char* argv[])
 	/*---------------------
 	Main
 	---------------------*/
-
-	//auto app = wrap(new Application());
-	//app->run();
+#ifndef _DEBUG
+	auto app = wrap(new Application());
+	app->run();
+#endif // !_DEBUG
 
 	/*---------------------
 	UNIT TESTS
 	---------------------*/
-
-#define MAINTESTS
-#ifdef MAINTESTS
-#ifndef SDLINIT
-#define SDLINIT
-	SDL_Init(SDL_INIT_EVERYTHING);
-#endif
-#endif
-
+	if (!SDL_WasInit(0))
+		SDL_Init(SDL_INIT_EVERYTHING);
 	/*---------------------
 	UNIT TEST DEFINITIONS
 	---------------------*/
+
+	auto test = [](bool(*func)(), std::string name) {
+		SDL_Log("Testing %s\n", name.c_str());
+		bool result = func();
+		SDL_Log("Testing %s ", name.c_str());
+		SDL_Log((result ? "Succeeded\n" : "Failed\n"));
+	};
+
+#if CONFIG==TEST
 	auto testConfig = [](){
 		auto config = t_config("test.info");
 		std::string data = config.getData();
 		return true;
 	};
-
+	test(testConfig, "Config Test");
+#endif
+#if NET==TEST
 	auto testNetMessenger = [](){
 		UDPpacket* packet = SDLNet_AllocPacket(512);
 		auto messenger = wrap(new Tool_Messenger());
@@ -76,7 +91,8 @@ int main(int argc, char* argv[])
 		SDL_ShowSimpleMessageBox(0, "test", messenger->read(packet->data).c_str(), NULL);
 		SDLNet_FreePacket(packet);
 	};
-
+#endif
+#if ASSETS==TEST
 	auto testAssets = [](){
 		SDL_Renderer* ren;
 		SDL_Window* win;
@@ -85,24 +101,64 @@ int main(int argc, char* argv[])
 		asset->draw(10, 10);
 		SDL_RenderPresent(ren);
 		SDL_Delay(2000);
-
+		return true;
 //		int index = _asset::useLookup("fire_fighter.png");
 //		SDL_Log("\nIndex was %d\n\n", index);
 //		return index!=-1;
 	};
-
+	test(testAssets, "Asset Test");
+#endif
+#if GFX==TEST
 	auto testGFX = []() {
 		auto gfx = wrap(new _gfx());
 		auto path = "fire_fighter.png";
 		int id = 0;
-		//gfx->loadAsset(path,++id);
-		//gfx->draw(id);
-		//gfx->present();
+		gfx->loadAsset(path, id);
+		gfx->draw(id,scalar(100,100));
+		gfx->present();
 		return true;
 	};
+	test(testGFX, "GFX Test");
+#endif
+#if FIRE==TEST
+	auto testFire = [](){
+		//using AA::Pos;
 
+		auto sim = Facet_Sim{};
+		auto gfx = wrap(new _gfx{});
+		
+		_cfg sessionConfig = _cfg{ "config.INFO" };
+		sim.connect(sessionConfig);
+		gfx->connect(sessionConfig);
+
+		//init map
+		for (auto item : sessionConfig->get_child("Map"))
+		{
+
+			char key = item.first.front();
+			scalar pos = scalar{ item.second.data() };
+			sim.set(pos, key);
+		}
+		int time = 0;
+		while (time < 10000 && !SDL_QuitRequested())
+		{
+			//update
+			sim.update(16);
+			//draw
+			gfx->draw(sim.data);
+			SDL_Delay(16);
+			gfx->present();
+			time += 16;
+		}
+		SDL_Delay(3000);
+
+		return true;
+	};
+	test(testFire,"Fire");
+#endif
+#if CHUNKS==TEST
 	auto testChunks = []() {
-		/*auto sim = wrap(new t_sim());
+		auto sim = wrap(new t_sim());
 		using AA::Pos;
 		//sim->put(Pos(1, 0), 0xA);
 		//sim->put(Pos(2, 0), 0xC);
@@ -112,115 +168,15 @@ int main(int argc, char* argv[])
 		sim->putChunk(cs, Pos(1,0));
 		std::string cs2 = sim->getChunk(Pos(1, 0));
 		assert(cs2 == cs);
-		return true;*/
-	};
-
-	auto testFire = [](){
-		//using AA::Pos;
-
-		//SDL_Renderer* ren;
-		//SDL_Window* win;
-		//SDL_CreateWindowAndRenderer(600, 600, 0, &win, &ren);
-
-		auto sim = _sim{};
-		auto gfx = wrap(new _gfx{});
-
-		using ptree = boost::property_tree::ptree;
-
-		_cfg sessionConfig = _cfg{ "config.INFO" };
-		std::map<char, _cfg> templates;
-		std::vector<Tool_Data> dataContainer;
-
-		DataTranslator tr{};
-		for (auto item : sessionConfig->get_child("Templates"))
-		{
-			std::string group = item.first;
-			auto key = item.second.get_value<char>();
-			templates.insert(std::make_pair(
-				key,
-				_cfg{ item.second }
-			));
-		}
-
-		for (auto item : sessionConfig->get_child("Map"))
-		{
-			char key = item.first.front();
-			scalar pos = scalar{ item.second.data() };
-			auto newData = create_data(*templates[key], tr, pos);
-			gfx->connect(&newData);
-			gfx->draw(&newData);
-		}
-		gfx->present();
-		SDL_Delay(3000);
-		
-		//sim.set(scalar(1, 1), 'f');
-		//sim.update(10000);
-		//auto neighborhood = sim.around(scalar(1, 1));
-		/*auto a_fire = wrap(new Tool_Asset{ "fire.png", ren });
-		auto fireModule = Module_Fire{};
-		auto sim = wrap(new Facet_Sim{});
-		sim->putChunk("F000 F000 F000 F000", Pos(0, 0));
-		sim->putChunk("F000 F000 F000 F000", Pos(1, 0));
-		sim->putChunk("F000 F000 F000 F000", Pos(1, 1));
-		sim->putChunk("F000 F000 F000 F000", Pos(0, 1));
-
-		auto draw = [&sim, &ren, &a_fire]() {
-			SDL_RenderClear(ren);
-			
-			SDL_RenderPresent(ren);
-		}; // testfire draw
-
-//		fireModule.sync(sim->getMap);
-		//sim->saveState("autosave.map");
-		//fireModule.loadState("autosave.map");
-		int time = 0;
-		while (time < 1000 * 100)
-		{
-			fireModule.update(100);
-			time += 100;
-
-			auto news = fireModule.getNews();
-			for (auto n : news)
-			{
-				SDL_Log(FF::translate<Module_Fire, t_sim>()(n, sim.get()).c_str());
-			} if (news.size() > 0) {
-				std::stringstream name;
-				name << "Map" << time << ".map";
-				sim->saveState(name.str());
-			}
-
-			draw();
-
-			SDL_Delay(16);
-		}
-		*/
 		return true;
-	}; // testfire
-
-	auto test = [](bool(*func)(), std::string name) {
-		SDL_Log("Testing %s\n", name.c_str());
-		bool result = func();
-		SDL_Log("Testing %s ", name.c_str());
-		SDL_Log((result ? "Succeeded\n" : "Failed\n"));
-	}; 
-
-	/*---------------------
-	MAIN
-	---------------------*/
-
-	//test(testConfig, "Config Test");
-	//testNetMessenger();
-	//test(testAssets, "Asset Test");
-	//testChunks();
-	test(testFire,std::string("Fire"));
-	//test(testGFX, "GFX Test");
+	};
+	test(testChunks, "Chunk Test");
+#endif
 
 	SDL_Delay(1000);
 
 	logFile.close();
-#ifdef SDLINIT
-#undef SDLINIT
-	SDL_Quit();
-#endif
+	if(SDL_WasInit(0))
+		SDL_Quit();
 	return 1;
 }

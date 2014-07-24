@@ -36,28 +36,45 @@ void Application::run()
 {
 	using v2 = AA::Pos;
 
-#ifndef SDLINIT
-#define SDLINIT
-	SDL_Init(SDL_INIT_EVERYTHING);
-#endif
+	if (!SDL_WasInit(0))
+		SDL_Init(SDL_INIT_EVERYTHING);
 
 	auto gfx = wrap(new _gfx{});
-	auto sim = wrap(new _sim{});
+	auto sim = Facet_Sim{};
 
 
-	auto config = Tool_Configurable("config.INFO");
-
-	for (auto item : config->get_child("Templates"))
+	_cfg sessionConfig = _cfg{ "config.INFO" };
+	sim.connect(sessionConfig);
+	gfx->connect(sessionConfig);
+	//init map
+	for (auto item : sessionConfig->get_child("Map"))
 	{
-		gfx->loadAsset(item.second.get<std::string>("asset"), item.second.get<char>("id"));
+
+		char key = item.first.front();
+		scalar pos = scalar{ item.second.data() };
+		sim.set(pos, key);
+	}
+	//std::map<char, const Tool_Data> templates;
+	/*std::vector<Tool_Data> dataContainer;
+
+	DataTranslator tr{};
+	for (auto item : sessionConfig->get_child("Templates"))
+	{
+		std::string group = item.first;
+		auto key = item.second.get_value<char>();
+		sim.templates.insert(std::make_pair(
+			key,
+			create_data(item.second, tr, scalar(0, 0))
+			));
 	}
 
-	std::string mapPath = config->get<std::string>("Map");
-	
-	for (auto item : config->get_child("Map"))
+	for (auto item : sessionConfig->get_child("Map"))
 	{
-		SDL_Log("%s, %s", item.first.data(), item.second.data());
-	}
+		char key = item.first.front();
+		scalar pos = scalar{ item.second.data() };
+		auto newData = sim.set(pos, key);
+		gfx->connect(&newData);
+	}*/
 
 	auto keys = SDL_GetKeyboardState(NULL);
 	int mousex = 0;
@@ -68,12 +85,12 @@ void Application::run()
 	bool playing = true;
 	SDL_Event e;
 
-	const int size = 100;
-	const double coverage = 1.0;
-	//for (int i = 0; i < int(size*size*coverage); i++)
-		//sim->put(AA::Pos(rand() % size - size / 2, rand() % size - size/2), '3');
-	//for (int i = 0; i < int(size*size*coverage); i++)
-		//sim->put(AA::Pos(rand() % size - size / 2, rand() % size - size/2), '4');
+	const int size = sessionConfig->get_optional<int>("Settings.worldSize").get_value_or(100);
+	const double coverage = sessionConfig->get_optional<double>("Settings.treeCoverage").get_value_or(0.5);
+	for (int i = 0; i < int(size*size*coverage); i++)
+		sim.set(scalar(rand() % size - size / 2, rand() % size - size / 2), '3');//put(AA::Pos(rand() % size - size / 2, rand() % size - size/2), '3');
+	for (int i = 0; i < int(size*size*coverage); i++)
+		sim.set(scalar(rand() % size - size / 2, rand() % size - size / 2), '4');
 
 	while (SDL_QuitRequested() == false && playing)
 	{
@@ -98,10 +115,34 @@ void Application::run()
 
 		while (SDL_PollEvent(&e))
 		{
+			if (e.type == SDL_WINDOWEVENT)
+			{
+				if (e.window.type == SDL_WINDOWEVENT_RESIZED)
+				{
+					gfx->resize(e.window.data1, e.window.data2);
+				}
+			}
 			if (e.type == SDL_MOUSEWHEEL)
 			{
 				if (abs(e.wheel.y) > 0)
 					v_zoom += 0.03*e.wheel.y;
+			}
+			
+			if (e.type == SDL_MULTIGESTURE)
+			{
+				SDL_MultiGestureEvent& g = e.mgesture;
+				if (g.numFingers == 1)
+				{
+				}
+				if (g.numFingers == 2)
+					v_zoom += 0.3*g.dDist;
+			}
+			if (e.type == SDL_FINGERMOTION)
+			{
+				SDL_TouchFingerEvent& f = e.tfinger;
+				v_camera.x = -f.dx*1024;
+				v_camera.y = -f.dy*768;
+				//gfx->moveCamera(scalar(-f.dx*100, -f.dy*100));
 			}
 
 			if (e.type == SDL_MOUSEMOTION)
@@ -120,9 +161,10 @@ void Application::run()
 
 		if ((mouse&SDL_BUTTON_MMASK)==0){
 			gfx->moveCamera(v_camera);
-			if (v_camera1 == v_camera)
-				v_camera *= 0.9;
 		}
+		
+		if (v_camera1 == v_camera)
+			v_camera *= 0.9;
 
 		gfx->zoomCamera(v_zoom);
 
@@ -131,19 +173,15 @@ void Application::run()
 
 		//sim->put(AA::Pos(rand() % size - size / 2, rand() % size - size / 2), 'F');
 
-	//	auto set = sim->getMap();
-		
-		//for (auto& item : *set)
-		{
-		//	auto location = item.first;
-		//	auto& value = item.second;
-		//	gfx->draw(location, value);
-		}
+		auto& set = sim.data;
+
+		//draw
+		gfx->draw(sim.data);
 
 		gfx->present();
 
 		long ticks = SDL_GetTicks();
-		//sim->update();
+		sim.update(16);
 		long ticks2 = SDL_GetTicks();
 		int delay = 16 - (ticks2 - ticks);
 		if (delay > 0) SDL_Delay(delay);
