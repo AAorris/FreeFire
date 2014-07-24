@@ -1,33 +1,42 @@
 Templates {
-	Unit 1 {
+	u 1 {
 		asset "fire_fighter.png" {
-			small "fire_breaker-small.png"
+			small "fire_fighter-small.png"
 		}
-		flags {
+		properties {
 		}
 	}
-	Unit 2 {
+	u 2 {
 		asset "fire_breaker.png" {
 			small "fire_breaker-small.png"
 		}
 	}
-	Object 3 {
+	o 3 {
 		asset "tree.png" 
-		flags {
+		properties {
 			burnable 1
 		}
 	}
-	Object 4 {
+	o 4 {
 		asset "pine_tree.png"
+		properties {
+			burnable 1
+		}
 	}
-	Fire F {
+	f F {
 		asset "fire.png"
 	}
 }
+Settings {
+	worldSize 100
+	treeCoverage 0.5
+}
 Map {
-	1 "0 0"
+	2 "-10 -10"
+	1 "6, 15"
+	3 "0 0"
 	F "1 0"
-	1 "2 0"
+	3 "2 0"
 	3 "3 0"
 	4 "4 0"
 }

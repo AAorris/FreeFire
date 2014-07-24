@@ -102,9 +102,6 @@
     <ClCompile Include="Tool_Data.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DataTranslator.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Tool.h">
@@ -189,9 +186,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Tool_Data.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DataTranslator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

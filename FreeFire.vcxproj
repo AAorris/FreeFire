@@ -97,7 +97,6 @@
     <ClCompile Include="Application_FreeFire.cpp" />
     <ClCompile Include="camera_data.cpp" />
     <ClCompile Include="Client.cpp" />
-    <ClCompile Include="DataTranslator.cpp" />
     <ClCompile Include="Facet.cpp" />
     <ClCompile Include="Facet_Cfg.cpp" />
     <ClCompile Include="Facet_Gfx.cpp" />
@@ -129,7 +128,6 @@
     <ClInclude Include="Application.h" />
     <ClInclude Include="Application_FreeFire.h" />
     <ClInclude Include="camera_data.h" />
-    <ClInclude Include="DataTranslator.h" />
     <ClInclude Include="Facet.h" />
     <ClInclude Include="Facet_Cfg.h" />
     <ClInclude Include="Facet_Gfx.h" />

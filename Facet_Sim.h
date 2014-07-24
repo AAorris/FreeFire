@@ -8,23 +8,37 @@
 #include "scalar.h"
 //#include <map>
 #include <unordered_map>
+#include <set>
 
 class Facet_Sim
 {
 public:
-	using t_map = std::unordered_map<scalar, Tool_Data>;
-	using t_emplates = std::unordered_map<char, _cfg>;
+	using template_type = tile::Template;
+	using template_key = tile::id_type;
+	using group_type = std::unordered_map<scalar, tile::Data*>;
+	//attempting to order lexicographically by id, and then position.
+	//Imagine updating all trees, all houses, all units, all fires.
+	//This should help with branch prediction when update checks id (maybe?)
+	using master_type =
+		std::unordered_map<
+			tile::group_type,
+			group_type
+		>;
+	master_type data;
+	std::map<template_key, const template_type> templates;
+
+	int time = 0;
 
 	Facet_Sim();
 	~Facet_Sim()=default;
-	Tool_Data& operator()(const scalar& pos);
+	tile::Data* operator()(const tile::group_type& group, const scalar& pos);
 
-	void set(const scalar& pos, const char& id);
+	void connect(_cfg& session);
+	void set(const scalar& pos, const template_key& key);
+	bool insert(const scalar& pos, const template_key& key);
 	void update(int ms);
-	std::vector<Tool_Data*> around(const scalar& pos);
+	std::vector<group_type::value_type> around(const tile::group_type& type, const scalar& pos);
 	
-	t_map data;
-	t_emplates templates;
 };
 
-typedef Facet_Sim _sim;
+//typedef Facet_Sim _sim;

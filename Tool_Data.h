@@ -2,25 +2,92 @@
 #include "scalar.h"
 #include "Tool_Configurable.h"
 #include "Tool_Asset.h"
+#include <iosfwd>
 #include <set>
-const unsigned long BURNABLE = 0x1;
 
-//different from a config tool - it holds variable data compared to static data.
-class Tool_Data
+//looks like you're going to have to name your tile variables carefully. :)
+namespace tile
 {
-public:
-	scalar pos;
-	const char id;
-	const unsigned long flags;
-	std::set<const std::string> assets;
-	bool burning;
+	using id_type = char;
+	using group_type = char;
+	using flag_type = bool;
+	using properties_type = std::unordered_map<std::string, flag_type>;
+	using flag = properties_type::value_type;
+	flag make_flag(const std::string& name);
+	enum groups {
+		WEATHERGROUP	= 'w',
+		UNITGROUP		= 'u',
+		FIREGROUP		= 'f',
+		OBJECTGROUP		= 'o',
+		GEOGRAPHYGROUP	= 'g',
+	};
+	const std::vector<id_type> group_order = { GEOGRAPHYGROUP, OBJECTGROUP, FIREGROUP, UNITGROUP, WEATHERGROUP };
 
-	Tool_Data();
-	Tool_Data(const Tool_Configurable& config, const scalar& where);
-	Tool_Data(char tileID, unsigned long startFlags, std::vector<std::string> assets);
-	virtual ~Tool_Data();
-	void apply(const std::string& action);
-};
+	enum tile_flags {
+		FIRE_FLAG
+	};
+	void operator|=(properties_type& properties, const flag& f);
+	flag& operator&(const flag& left, const flag& right);
+	bool operator&&(const flag& left, const flag& right);
+	bool operator&&(const flag& left, flag& right);
+	using timer_type = int;
+
+	class Template
+	{
+	public:
+		using assets_type = std::set<const std::string>;
+
+		const group_type group;
+		const id_type id;
+		const assets_type assets;
+		const properties_type properties;
+
+		Template();
+		Template(const group_type& p_group, const id_type& p_id, const assets_type& p_assets, const properties_type& p_properties);
+		const flag_type operator()(const flag::first_type& property) const;
+	};
+
+	class Data
+	{
+	public:
+		id_type id = 0;
+		properties_type status = properties_type{};//from flags
+		const tile::Template* root;
+		//bool burning;
+
+		Data(const tile::Template* config);
+		virtual ~Data() = default;
+		virtual void operator=(const Template*);
+		virtual bool operator==(const Data& other);
+		virtual bool operator<(const Data& other);
+		virtual flag config(const flag::first_type& property);
+		virtual void apply(const flag& property);
+		virtual void setStatus(const flag::first_type& key, const flag::second_type& val);
+		virtual void update(int ms);
+		flag getFlag(const properties_type::key_type& key);
+	};
+
+	class Unit : public tile::Data
+	{
+	public:
+		timer_type unitTime = 0;
+		boost::optional<scalar> destination;
+		//
+		Unit(const tile::Template* config);
+		virtual void update(int ms);
+	};
+
+	class Fire : public tile::Data
+	{
+	public:
+		timer_type fireTime = 0;
+		Fire(const tile::Template* config);
+		virtual void operator=(const Template*);
+	};
+}
+
+
+
 
 
 //position
