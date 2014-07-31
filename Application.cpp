@@ -22,6 +22,7 @@ using PT = boost::property_tree::ptree;
 #include "Facet_Gfx.h"
 #include "scalar.h"
 
+#include "Tool_UIElement.h"
 
 Application::Application()
 {
@@ -39,13 +40,22 @@ void Application::run()
 	if (!SDL_WasInit(0))
 		SDL_Init(SDL_INIT_EVERYTHING);
 
-	auto gfx = wrap(new _gfx{});
+	auto gfx = wrap( new _gfx(scalar(1024,768)) );
 	auto sim = Facet_Sim{};
 
 
 	_cfg sessionConfig = _cfg{ "config.INFO" };
 	sim.connect(sessionConfig);
 	gfx->connect(sessionConfig);
+
+
+	_cfg newSession = _cfg{ "assets/Session.INFO" };
+	auto a = newSession.getData();
+	auto cfg = newSession->get_child("Config.UI.Placeholder");
+	auto d = newSession.getData("Config.UI.Placeholder");
+	UI::art::context ctx = gfx->context();
+	UI* element = new UI(ctx, cfg);
+
 	//init map
 	for (auto item : sessionConfig->get_child("Map"))
 	{
@@ -113,6 +123,8 @@ void Application::run()
 		if (keys[SDL_SCANCODE_ESCAPE])
 			playing = false;
 
+		bool leftMouseReleased = false;
+
 		while (SDL_PollEvent(&e))
 		{
 			if (e.type == SDL_WINDOWEVENT)
@@ -157,6 +169,15 @@ void Application::run()
 			if (e.type == SDL_KEYUP)
 			{
 			}
+
+			if (e.type == SDL_MOUSEBUTTONUP)
+			{
+				leftMouseReleased = true;
+			}
+		}
+
+		if ((mouse&SDL_BUTTON_LMASK) == 0){
+			leftMouseReleased = true;
 		}
 
 		if ((mouse&SDL_BUTTON_MMASK)==0){
@@ -176,7 +197,25 @@ void Application::run()
 		auto& set = sim.data;
 
 		//draw
+#ifndef _DEBUG
 		gfx->draw(sim.data);
+#endif
+
+		if (leftMouseReleased)
+		{
+			auto cell = gfx->getCell(scalar(mousex, mousey));
+			gfx->highlightCell(cell);
+		}
+
+		boost::property_tree::ptree newData{};
+		boost::property_tree::ptree wind{};
+		wind.put<int>("N", rand() % 100);
+		wind.put<int>("S", rand() % 100);
+		wind.put<int>("E", rand() % 100);
+		wind.put<int>("W", rand() % 100);
+		newData.put_child("Wind",wind);
+		element->update(&newData);
+		element->draw();
 
 		gfx->present();
 

@@ -31,13 +31,13 @@ struct IMPL {
 	scalar screenSize;
 	double zoom;
 
-	Impl()
+	Impl(scalar size = scalar(1024,768))
 	{
 		SDL_DisplayMode screen;
 		SDL_GetCurrentDisplayMode(0, &screen);
 
-		screen.w *= .9;
-		screen.h *= .9;
+		screen.w = size.x;
+		screen.h = size.y;
 
 		screenSize = scalar{ double(screen.w), double(screen.h) };
 
@@ -120,7 +120,8 @@ struct IMPL {
 
 		scalar view{ double(location.x), double(-location.y) };
 		view -= offset;
-		view *= res*zoom;
+	//	view *= res*zoom;
+		view *= res;
 		view += offset+origin;
 
 		int size = res*zoom;
@@ -167,11 +168,25 @@ struct IMPL {
 
 /*--------------------------------------------------------*/
 
-CTOR() : p{ new Impl() } {
+CTOR(scalar size = scalar(1024,768)) : p{ new Impl(size) } {
 	std::string error = SDL_GetError();
 	SDL_SetRenderDrawBlendMode(p->renderer, SDL_BLENDMODE_BLEND);
 }
 DTOR() { SDL_DestroyRenderer(p->renderer); SDL_DestroyWindow(p->window); }
+
+const _asset* CLASS::getAsset(const tile::id_type& key)
+{
+	return &p->assets.at(static_cast<char>(key));
+	/*
+	auto& res = p->find(key);
+	if (res.is_initialized()){
+		auto& asset = res.get()->second;
+		return &asset;
+	}
+	else
+		return NULL;
+	*/
+}
 
 void CLASS::zoomCamera(const double& dz)
 {
@@ -193,28 +208,6 @@ cameraTool_Data CLASS::getCamera()
 	return cameraTool_Data(p->origin, p->offset, p->screenSize, p->zoom, p->res);
 }
 
-/*void CLASS::connect(Tool_Data* to)
-{
-	if (p->assets.count(to->id) == 0)
-	{
-		for (auto path : to->assets)
-		{
-			char type = to->id;
-			p->loadAsset(path, type);
-		}
-	}
-}
-
-void CLASS::draw(Tool_Data* data)
-{
-	auto& pos = data->pos;
-	int size = p->res * p->zoom;
-	auto query = p->find(data->id);
-	p->draw(query, pos);
-}
-*/
-
-
 void CLASS::connect(_cfg& session)
 {
 	for (auto item : session->get_child("Templates"))
@@ -226,6 +219,53 @@ void CLASS::connect(_cfg& session)
 		auto smallAsset = item.second.get_optional<std::string>("asset.small").get_value_or("");
 		if (smallAsset!="")
 			p->loadSmallAsset(smallAsset, key);
+	}
+}
+
+void Facet_Gfx::draw(SDLButton* button)
+{
+	SDLButton& b = *button;
+	SDL_Renderer* ren = p->renderer;
+
+	//drawing background
+	SDL_Rect bg = { b.x, b.y, b.w, b.h };
+	SDL_Color bgCol = { 255, 0, 0, 255 };
+	if (b.clicking)
+		SDL_SetRenderDrawColor(ren, b.clickCol.r, b.clickCol.g, b.clickCol.b, b.clickCol.a);
+	else if (b.hovering)
+		SDL_SetRenderDrawColor(ren, b.hoverCol.r, b.hoverCol.g, b.hoverCol.b, b.hoverCol.a);
+	else
+		SDL_SetRenderDrawColor(ren, b.idleCol.r, b.idleCol.g, b.idleCol.b, b.idleCol.a);
+	SDL_RenderFillRect(ren, &bg);
+
+	//drawing label (?)
+	if (b.textLabel != "")
+	{
+		if (b.t_label != NULL)
+			SDL_RenderCopy(ren, b.t_label, NULL, &b.r_label);
+		else
+		{
+			//SDL_Texture* tex = getText(b.textLabel, "robotoblack12");
+			//b.t_label = tex;
+			int tw = 0;
+			int th = 0;
+			//SDL_QueryTexture(tex, NULL, NULL, &tw, &th);
+			//line up the two centers
+			// c = center
+			// b = background
+			// t = text
+			int cbx = b.x + b.w / 2;
+			int cby = b.y + b.h / 2;
+			int ctx = b.x + tw / 2;
+			int cty = b.y + th / 2;
+			//offset from normal position is the difference
+			//between their centers.
+			int r_x = b.x + (cbx - ctx);
+			int r_y = b.y + (cby - cty);
+
+			b.r_label = { r_x, r_y, tw, th };
+			//SDL_RenderCopy(ren, b.t_label, NULL, &b.r_label);
+		}
 	}
 }
 
@@ -266,6 +306,11 @@ void Facet_Gfx::draw(master_type& data)
 	//SDL_RenderCopy(p->renderer, p->fog, NULL, NULL);
 }
 
+std::pair<SDL_Window*, SDL_Renderer*> CLASS::context()
+{
+	return{ p->window, p->renderer };
+}
+
 void CLASS::draw(const char& id, const scalar& pos)
 {
 	auto& query = p->find(id);
@@ -288,4 +333,34 @@ void CLASS::present()
 {
 	SDL_RenderPresent(p->renderer);
 }
+
+scalar CLASS::getCell(const scalar& mousePos)
+{
+	//transform mouse origin to screen's center
+	scalar distanceFromCenter = mousePos - p->origin;
+	scalar distanceFromOrigin = scalar(0, 0);// p->offset;
+	int cellSize = p->res*p->zoom;
+	double zoom = p->zoom;
+
+	scalar finalPos = ( distanceFromCenter / zoom + distanceFromOrigin ) / cellSize;
+	//finalPos -= p->offset + p->origin;
+	//finalPos /= p->res*p->zoom;
+	//finalPos += p->offset;
+	//finalPos.x = finalPos.x - (static_cast<int>(finalPos.x) % (int)(p->res*p->zoom));
+	//finalPos.y = finalPos.y - (static_cast<int>(finalPos.y) % (int)(p->res*p->zoom));
+	//finalPos.y *= -1;
+	//finalPos /= p->res * p->zoom;
+	return p->offset;
+}
  
+void CLASS::highlightCell(const scalar& cell)
+{
+	scalar view{ double(cell.x), double(-cell.y) };
+	view -= p->offset;
+	view *= p->res*p->zoom;
+	view += p->offset + p->origin;
+
+	auto r = SDL_Rect{ view.x, view.y, p->res*p->zoom, p->res*p->zoom };
+	SDL_SetRenderDrawColor(p->renderer, 255, 0, 0, 255);
+	SDL_RenderDrawRect(p->renderer, &r);
+}
