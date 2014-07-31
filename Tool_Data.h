@@ -70,8 +70,9 @@ namespace tile
 	class Unit : public tile::Data
 	{
 	public:
-		timer_type unitTime = 0;
+		scalar position;
 		boost::optional<scalar> destination;
+		timer_type move_time = 0;
 		//
 		Unit(const tile::Template* config);
 		virtual void update(int ms);

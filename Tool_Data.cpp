@@ -92,18 +92,18 @@ namespace tile {
 
 	Unit::Unit(const tile::Template* config) : tile::Data(config)
 	{
-		unitTime = 0;
+		//unitTime = 0;
 	}
 	void Unit::update(int ms)
 	{
 		Data::update(ms);
-		unitTime += ms;
+		//unitTime += ms;
 		if (destination.is_initialized())
 		{
-			if (unitTime > 1000)
-			{
-				setStatus("canMove", true);
-			}
+			//if (unitTime > 1000)
+			//{
+				//setStatus("canMove", true);
+			//}
 		}
 	}
 

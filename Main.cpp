@@ -12,6 +12,8 @@
 #define FIRE		ENABLE
 #define CHUNKS		DISABLE
 
+#define APPLICATION TEST
+
 #include "Tool_Configurable.h"
 #include "Tool_Asset.h"
 #include "Tool_Messenger.h"
@@ -28,6 +30,8 @@
 #include <cassert>
 #include <boost/range/adaptor/reversed.hpp>
 #include <string>
+
+#include "SDLButton.h"
 //#include <sstream>
 
 using boost::adaptors::reverse;
@@ -52,9 +56,28 @@ int main(int argc, char* argv[])
 	/*---------------------
 	Main
 	---------------------*/
-#ifndef _DEBUG
+#if APPLICATION == TEST
+
+	{
+		auto button = wrap(new SDLButton(0, 0, 600, 300, "Start"));
+		auto g = wrap(new _gfx(scalar(600, 300)));
+		g->loadAsset("assets/loading.png", 1);
+		auto bg = g->getAsset(1);
+		while (button->clicking == false && !SDL_QuitRequested())
+		{
+			bg->draw(0, 0);
+			button->update();
+			g->draw(button.get());
+			g->present();
+			
+			SDL_Delay(16);
+		}
+	}
+
 	auto app = wrap(new Application());
 	app->run();
+
+
 #endif // !_DEBUG
 
 	/*---------------------

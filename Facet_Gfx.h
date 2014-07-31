@@ -3,6 +3,7 @@
 #include "Tool_Asset.h"
 #include "scalar.h"
 #include "camera_data.h"
+#include "SDLButton.h"
 #include "Tool_Data.h"
 #include <iosfwd>
 #include <unordered_set>
@@ -27,21 +28,22 @@ private:
 		>;
 public:
 
-	Facet_Gfx();
+	Facet_Gfx(scalar size);
 	virtual ~Facet_Gfx();
 	Facet_Gfx(const Facet_Gfx& c) = delete;
 
-	template <typename TKey, typename TReturn>
-	const TReturn& getAsset(const TKey& key)
-	{
-		return p->find(key);
-	}
+
+	const _asset* getAsset(const tile::id_type& key);
 
 	void connect(_cfg& session);
 	void draw(const char& id, const scalar& pos);
 	void draw(master_type& data);
+	void draw(SDLButton* b);
+	scalar getCell(const scalar& mouse);
+	void highlightCell(const scalar& pos);
 	//void connect(Tool_Data* to);
 	//void draw(Tool_Data* data);
+	std::pair<SDL_Window*, SDL_Renderer*> context();
 	void present();
 	void clear();
 	void resize(int x, int y);
