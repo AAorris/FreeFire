@@ -38,6 +38,13 @@ scalar::scalar(const std::string& s)
 	ss >> y;
 }
 
+scalar scalar::operator%(const int& mod)
+{
+	int _x = x;
+	int _y = y;
+	return scalar(_x%mod, _y%mod);
+}
+
 bool scalar::operator==(const scalar& other)
 {
 	return other.x == x && other.y == y;

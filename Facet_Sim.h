@@ -28,6 +28,8 @@ public:
 	std::map<template_key, const template_type> templates;
 
 	int time = 0;
+	tile::Unit* selectedUnit = nullptr;
+	void select(const scalar& cell);
 
 	Facet_Sim();
 	~Facet_Sim()=default;

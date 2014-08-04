@@ -45,7 +45,7 @@ public:
 		}
 	}
 
-	void draw(int _x=-1, int _y=-1, int _w=-1, int _h=-1) const
+	void draw(int _x=-1, int _y=-1, int _w=-1, int _h=-1, bool centered = false) const
 	{
 		SDL_Rect r = {
 			(_x == -1) ? x : _x,
@@ -53,6 +53,12 @@ public:
 			(_w == -1) ? w : _w,
 			(_h == -1) ? h : _h
 		};
+
+		if (centered) {
+			r.x -= r.w / 2;
+			r.y -= r.h / 2;
+		}
+
 		if (SDL_RenderCopy(renderer, texture, NULL, &r)==0) return;
 		else {
 			enum UNINITIALIZED_ASSET{ ERROR };
@@ -76,9 +82,9 @@ int CLASS::getSize() const
 	return (p->w + p->h) / 2;
 }
 
-void CLASS::draw(int x, int y, int w, int h) const
+void CLASS::draw(int x=-1, int y=-1, int w=-1, int h=-1, bool centered = false) const
 {
-	p->draw(x, y, w, h);
+	p->draw(x, y, w, h, centered);
 }
 
 bool CLASS::operator==(const CLASS& c) const

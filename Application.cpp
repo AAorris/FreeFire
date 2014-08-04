@@ -161,8 +161,8 @@ void Application::run()
 			{
 				if (mouse&SDL_BUTTON_MMASK)
 				{
-					v_camera = scalar(-e.motion.xrel, -e.motion.yrel);
-					gfx->moveCamera( scalar(-e.motion.xrel, -e.motion.yrel) );
+					v_camera = scalar(e.motion.xrel, e.motion.yrel);
+					gfx->moveCamera( v_camera );
 				}
 			}
 
@@ -177,7 +177,7 @@ void Application::run()
 		}
 
 		if ((mouse&SDL_BUTTON_LMASK) == 0){
-			leftMouseReleased = true;
+			//leftMouseReleased = true;
 		}
 
 		if ((mouse&SDL_BUTTON_MMASK)==0){
@@ -196,15 +196,19 @@ void Application::run()
 
 		auto& set = sim.data;
 
-		//draw
-#ifndef _DEBUG
 		gfx->draw(sim.data);
-#endif
 
 		if (leftMouseReleased)
 		{
 			auto cell = gfx->getCell(scalar(mousex, mousey));
 			gfx->highlightCell(cell);
+			sim.select(cell);
+			//activeUIs.push_back();
+		}
+
+		if (sim.selectedUnit != NULL)
+		{
+			gfx->highlightCell(sim.selectedUnit->position);
 		}
 
 		boost::property_tree::ptree newData{};

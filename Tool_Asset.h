@@ -17,7 +17,7 @@ public:
 	static Tool_Asset make_item(const std::string& label, const std::string& path);
 	bool operator==(const Tool_Asset& a) const;
 	bool operator<(const Tool_Asset& a) const;
-	void draw(int x, int y, int w=-1, int h=-1) const;
+	void draw(int x, int y, int w, int h, bool centered) const;
 	std::string getPath() const;
 	int getSize() const;
 }; 
