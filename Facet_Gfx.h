@@ -17,6 +17,7 @@ private:
 	struct Impl;
 	std::unique_ptr<Impl> p;
 
+
 	using group_type = std::unordered_map<scalar, tile::Data*>;
 	//attempting to order lexicographically by id, and then position.
 	//Imagine updating all trees, all houses, all units, all fires.

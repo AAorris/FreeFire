@@ -10,7 +10,7 @@
 struct IMPL {
 	using container_type = std::unordered_map<char, _asset>;
 	using search_type = char;
-	using search_result = container_type::iterator&;
+	using search_result = container_type::iterator;
 	using potential_result = boost::optional<search_result>;
 	//typedef std::unordered_set< _asset >	container_type;
 	//typedef container_type::iterator		container_iterator;
@@ -115,19 +115,50 @@ struct IMPL {
 
 	void draw(potential_result const& item, const scalar& location){
 
-		if (!item.is_initialized())
+		if (item.get_ptr() == NULL)
 			throw std::range_error("Search for item failed!");
 
-		scalar view{ double(location.x), double(-location.y) };
-		view -= offset;
-	//	view *= res*zoom;
-		view *= res;
-		view += offset+origin;
+		scalar view = Transform(location, SIMSPACE, CAMERASPACE);
 
 		int size = res*zoom;
 
-		(*item)->second.draw(view.x, view.y, size, size);
+		item.get()->second.draw(view.x, view.y, size, size, true);
 
+	}
+
+	//screen starts at 0,0. Camera starts in the middle of the screen.
+	enum SPACE {
+		SCREENSPACE,
+		CAMERASPACE,
+		SIMSPACE,
+	};
+
+	scalar Transform(const scalar& pos, SPACE cur, SPACE dest)
+	{
+		scalar p1 = pos;
+		if (cur == SIMSPACE && dest == SCREENSPACE)
+		{
+			p1 *= res*zoom;
+			p1 += offset * zoom;
+			return p1;
+		}
+		if (cur == SCREENSPACE && dest == SIMSPACE)
+		{
+			p1 -= offset*zoom;
+			p1 /= res*zoom;
+			return p1;
+		}
+		if (cur == SIMSPACE && dest == CAMERASPACE)
+		{
+			p1 = (Transform(p1, SIMSPACE, SCREENSPACE) + origin);
+			return p1;
+		}
+		if (cur == CAMERASPACE && dest == SIMSPACE) //offset calculations to screenspace by converting to it first.
+		{
+			p1 = (Transform(p1, SCREENSPACE, SIMSPACE) - origin);
+			return p1;
+		}
+		throw std::runtime_error("No correct transform found");
 	}
 
 	void drawAround(const scalar& pos){
@@ -195,7 +226,7 @@ void CLASS::zoomCamera(const double& dz)
 }
 void CLASS::moveCamera(const scalar& dp)
 {
-	p->offset += dp/(p->res*p->zoom);
+	p->offset += dp / p->zoom;
 }
 void CLASS::resize(int x, int y)
 {
@@ -336,31 +367,20 @@ void CLASS::present()
 
 scalar CLASS::getCell(const scalar& mousePos)
 {
-	//transform mouse origin to screen's center
-	scalar distanceFromCenter = mousePos - p->origin;
-	scalar distanceFromOrigin = scalar(0, 0);// p->offset;
-	int cellSize = p->res*p->zoom;
-	double zoom = p->zoom;
-
-	scalar finalPos = ( distanceFromCenter / zoom + distanceFromOrigin ) / cellSize;
-	//finalPos -= p->offset + p->origin;
-	//finalPos /= p->res*p->zoom;
-	//finalPos += p->offset;
-	//finalPos.x = finalPos.x - (static_cast<int>(finalPos.x) % (int)(p->res*p->zoom));
-	//finalPos.y = finalPos.y - (static_cast<int>(finalPos.y) % (int)(p->res*p->zoom));
-	//finalPos.y *= -1;
-	//finalPos /= p->res * p->zoom;
-	return p->offset;
+	return p->Transform(mousePos - p->origin, p->SCREENSPACE, p->SIMSPACE);
 }
  
 void CLASS::highlightCell(const scalar& cell)
 {
-	scalar view{ double(cell.x), double(-cell.y) };
-	view -= p->offset;
-	view *= p->res*p->zoom;
-	view += p->offset + p->origin;
+	scalar view = cell;
+	view.x = round(view.x);
+	view.y = round(view.y);
 
-	auto r = SDL_Rect{ view.x, view.y, p->res*p->zoom, p->res*p->zoom };
+	//view = view - view % p->res - p->offset*p->res;
+	view = p->Transform(view, p->SIMSPACE, p->SCREENSPACE);
+	int size = p->res*p->zoom;
+
+	auto r = SDL_Rect{ view.x-size/2+p->origin.x, view.y-size/2+p->origin.y, size,size};
 	SDL_SetRenderDrawColor(p->renderer, 255, 0, 0, 255);
 	SDL_RenderDrawRect(p->renderer, &r);
 }

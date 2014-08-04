@@ -39,6 +39,7 @@ public:
 	scalar scalar::operator-(const scalar& other);
 	scalar scalar::operator+(const scalar& other);
 	scalar scalar::operator*(const scalar& other);
+	scalar scalar::operator%(const int& mod);
 	//arithmetic (1d)
 	scalar scalar::operator*(const double& value);
 	scalar scalar::operator/(const double& value);

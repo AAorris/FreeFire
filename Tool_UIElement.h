@@ -3,6 +3,7 @@
 #include <SDL2\SDL_render.h>
 #include <boost\property_tree\ptree_fwd.hpp>
 
+
 /*This will be a standard UI Element. UI Elements have a background image*, are capable of being drawn in or individual windows, */
 class UI : protected Tool
 {
@@ -32,6 +33,7 @@ private:
 	class Interface;
 	class BasicImplementation;
 	class CompassUI;
+	class SelectionUI;
 	std::unique_ptr<Interface> detail;
 	Interface* makeDetail(UI::info& cfg, UI::art::context& ctx);
 
@@ -44,6 +46,7 @@ public:
 	//void setIsPoppedOut(bool popped);
 
 	UI::Image* background;
+
 	void draw();
 	void update(info* data);
 	UI::Image getTexture();

@@ -6,11 +6,169 @@
 #include <SDL2\SDL_ttf.h>
 #include <SDL2\SDL_image.h>
 #include "ArtHelp.h"
+#include <boost\property_tree\ptree.hpp>
+#include <boost\property_tree\info_parser.hpp>
 #include <sstream>
+#include <array>
 
 /*------------------------------------------------------------------------------------------------------------*
 												HELPER CODE
 *-------------------------------------------------------------------------------------------------------------*/
+
+
+
+namespace modern {
+
+	struct Context {
+		SDL_Window* window;
+		SDL_Renderer* renderer;
+		SDL_Window* getWindow() const { return window; }
+		SDL_Renderer* getRenderer() const { return renderer; }
+		SDL_Renderer* operator*() const { return getRenderer(); }
+		Context() = delete;
+		Context(SDL_Window* w, SDL_Renderer* r) { window = w; renderer = r; }
+		Context(Context&& other) : window{ std::move(other.window) }, renderer{ std::move(other.renderer) } {}
+		Context(const scalar& size, Uint32 windowFlags = 0, Uint32 renderFlags = SDL_RENDERER_TARGETTEXTURE | SDL_RENDERER_ACCELERATED) {
+			window = SDL_CreateWindow("", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, size.x, size.y, windowFlags);
+			renderer = SDL_CreateRenderer(window, -1, renderFlags);
+		}
+	};
+
+	struct Area {
+		SDL_Rect rect;
+		bool empty = false;
+		SDL_Rect* operator*() {
+			if (empty)
+				return NULL;
+			return &rect;
+		}
+		Area() {
+			rect = SDL_Rect{ 0, 0, 0, 0 };
+			empty = true;
+		}
+		Area(scalar size) {
+			scalar offset = size / -2;
+			rect = SDL_Rect{ offset.x, offset.y, size.x, size.y };
+		}
+		Area(int x, int y, int w, int h) {
+			rect = SDL_Rect{ x, y, w, h };
+		}
+	};
+
+
+	struct Texture {
+		std::unique_ptr<SDL_Texture> data;
+		const Context* context;
+		SDL_Texture* operator*() const { return data.get(); }
+		SDL_Texture* makeTexture(const Context* context, const std::string& path) {
+			auto temp = IMG_Load(path.c_str());
+			auto ptr = SDL_CreateTextureFromSurface(**context, temp);
+			SDL_FreeSurface(temp);
+			return ptr;
+		}
+		Texture() = delete;
+		Texture(const Context* ctx, const std::string& path) : data{ makeTexture(ctx, path) } {
+
+		}
+		Texture(Texture&& other) : data{ std::move(other.data) }, context{ std::move(other.context) } {}
+		Texture(std::unique_ptr<Context>& ctx, const std::string& path) :
+			data{ makeTexture(ctx.get(), path) }
+		{
+			context = ctx.get();
+		}
+		int draw(Area& dst = Area(), Area& src = Area()) {
+			return SDL_RenderCopy(**context, data.get(), *src, *dst);
+		}
+	};
+
+	struct Transform {
+		scalar position;
+		scalar scale;
+		double rotation;
+		Transform() {
+			position = scalar{};
+			scale = scalar{};
+			rotation = 0;
+		}
+		Transform(scalar _position, scalar _scale = scalar{ 0 }, double _rotation = 0) {
+			position = _position;
+			scale = _scale;
+			rotation = _rotation;
+		}
+	};
+
+	struct Config {
+		using ptree = boost::property_tree::ptree;
+		ptree data;
+		ptree* operator*(){ return &data; }
+		Config(const std::string& path) { boost::property_tree::read_info(path, data); }
+		Config(const ptree& input) { data = input; }
+	};
+
+	struct StaticImage {
+		/*texture points to a Texture. One Texture per image. Texture becomes invalid at the end of its scope(unique_ptr)
+		Can change the pointer, but not the texture.*/
+		const Texture*	texture;
+		Area		area;
+		Transform	transform;
+
+		const Context* context() {
+			return texture->context;
+		}
+		StaticImage() {
+			texture = NULL;
+			area = Area();
+			transform = Transform();
+		}
+		StaticImage(Texture* image, Area a, Transform&& t = Transform()) {
+			texture = image;
+			area = a;
+			transform = t;
+		}
+		Area applyTransform() {
+			Area result = area;
+			result.rect.x += transform.position.x;
+			result.rect.y += transform.position.y;
+			result.rect.w += result.rect.w * transform.scale.x;
+			result.rect.h += result.rect.h * transform.scale.y;
+			result.rect.x -= (result.rect.w - area.rect.w) / 2;
+			result.rect.y -= (result.rect.h - area.rect.h) / 2;
+			return result;
+		}
+		int draw() {
+			return SDL_RenderCopy(**texture->context, **texture, NULL, *applyTransform());
+		}
+	};
+
+	template <int Tilesize>
+	struct Tile {
+		StaticImage image;
+		bool empty = true;
+		Tile(int x = 0, int y = 0, Texture* t = NULL)
+		{
+			if (t != NULL)
+			{
+				empty = false;
+				image = StaticImage(t, Area(x*Tilesize, y*Tilesize, Tilesize, Tilesize), Transform());
+			}
+		}
+		void draw()
+		{
+			if (!empty)
+				image.draw();
+		}
+	};
+}
+namespace std {
+	/*The cleanup for @SDL_Texture is defined here for unique_ptrs. */
+	void default_delete<SDL_Texture>::operator()(SDL_Texture* _ptr) const { SDL_DestroyTexture(_ptr); }
+	/*The cleanup for @Context is defined here for unique_ptrs. */
+	void default_delete<modern::Context>::operator()(modern::Context* _ptr) const {
+		SDL_DestroyRenderer(_ptr->renderer);
+		SDL_DestroyWindow(_ptr->window);
+	}
+}
+
 namespace get {
 	using boost::property_tree::ptree;
 	UI::art::frame		frame	(const UI::art::context& ctx)	{  return ctx.first;  }
@@ -76,6 +234,7 @@ UI::Image::Image() : context{ NULL, NULL }, canvas{ NULL }
 class UI::Interface
 {
 public:
+	//Texture staticData;
 	Interface() = default;
 	virtual UI::Image* renderBackground() = 0;
 	virtual void update(UI::info* info = NULL) = 0;
@@ -170,6 +329,77 @@ public:
 	}
 };
 
+class UI::SelectionUI : public UI::Interface{
+public:
+	using Texture = modern::Texture;
+	using Image = modern::StaticImage;
+	using Context = modern::Context;
+	using Config = modern::Config;
+	using Area = modern::Area;
+	using Transform = modern::Transform;
+
+	using string = std::string;
+
+	using Item = std::pair<Texture*, Image*>;
+	using Container = std::vector<Item>;
+
+	//
+	const int size;
+	Context* context;
+	Container icons;
+
+	SelectionUI(SDL_Window* w, SDL_Renderer* r, const int& iconSize, std::vector<string> items) : size{ iconSize } {
+		icons = Container();
+		*context = Context{ w, r };
+		for (const string& path : items) {
+			Texture* t = new Texture(context, path);
+			Image* i = new Image(
+				t,
+				Area(scalar(iconSize, iconSize)),
+				Transform(scalar(0, 0), scalar(1, 1), 0)
+				);
+			icons.push_back(std::make_pair(t, i));
+		}
+	}
+
+	/*Requires cfg contains an integer called iconsize at its root.*/
+	SelectionUI(UI::art::context* ctx, UI::info* cfg) : size{ cfg->get<int>("iconSize") }
+	{
+		context = new Context(ctx->first, ctx->second);
+		for (auto& item : cfg->get_child("Items"))
+		{
+			Texture* t = new Texture(context, item.second.get<std::string>("Icon"));
+			//data
+		}
+	}
+
+	virtual UI::Image* renderBackground() {
+		return nullptr;
+	}
+
+	virtual void update(UI::info* info = NULL) {
+		int i = 0;
+		for (auto& item : icons)
+		{
+			int desiredX = i*size;
+			++i;
+		}
+	}
+
+	virtual int draw(UI::Image image) {
+		for (int i = 0; i < icons.size(); i++)
+			icons[i].second->draw();
+		return 1;
+	}
+
+	virtual ~SelectionUI() {
+		for (int i = 0; i < icons.size(); i++){
+			delete icons[i].first;
+			delete icons[i].second;
+		}
+	}
+};
+
 UI::Interface* UI::makeDetail(UI::info& cfg, UI::art::context& ctx)
 {
 	auto type = cfg.get<std::string>("Type");
@@ -181,10 +411,16 @@ UI::Interface* UI::makeDetail(UI::info& cfg, UI::art::context& ctx)
 	{
 		return new CompassUI(ctx, &cfg);
 	}
+	else if (type == "Menu")
+	{
+		return new SelectionUI(&ctx, &cfg);
+	}
 	else {
 		return new BasicImplementation(ctx, &cfg);
 	}
 }
+
+
 
 UI::UI(UI::art::context& ctx, UI::info& cfg) : detail{ makeDetail(cfg,ctx) }
 {

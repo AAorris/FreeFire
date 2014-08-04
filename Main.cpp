@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
 		auto bg = g->getAsset(1);
 		while (button->clicking == false && !SDL_QuitRequested())
 		{
-			bg->draw(0, 0);
+			bg->draw(0, 0, 600, 300, false);
 			button->update();
 			g->draw(button.get());
 			g->present();

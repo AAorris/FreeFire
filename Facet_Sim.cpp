@@ -156,5 +156,18 @@ void Facet_Sim::set(const scalar& pos, const template_key& key)
 	}*/
 }
 
+void Facet_Sim::select(const scalar& cell)
+{
+	int x, y;
+	x = cell.x;
+	y = cell.y;
+
+	auto it = data[tile::UNITGROUP].find(scalar(x, y));
+	if (it != end(data[tile::UNITGROUP]))
+		selectedUnit = static_cast<tile::Unit*>(it->second);
+	else
+		selectedUnit = nullptr;
+}
+
 
 #undef CLASS
