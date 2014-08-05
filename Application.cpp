@@ -36,6 +36,7 @@ Application::~Application()
 void Application::run()
 {
 	using v2 = AA::Pos;
+	activeUIs = std::vector<UI*>();
 
 	if (!SDL_WasInit(0))
 		SDL_Init(SDL_INIT_EVERYTHING);
@@ -51,10 +52,14 @@ void Application::run()
 
 	_cfg newSession = _cfg{ "assets/Session.INFO" };
 	auto a = newSession.getData();
-	auto cfg = newSession->get_child("Config.UI.Placeholder");
-	auto d = newSession.getData("Config.UI.Placeholder");
-	UI::art::context ctx = gfx->context();
-	UI* element = new UI(ctx, cfg);
+	for (auto item : newSession->get_child("Config.UI"))
+	{
+		activeUIs.push_back(new UI(gfx->context(), item.second));
+	}
+	//auto cfg = newSession->get_child("Config.UI.Placeholder");
+	//auto d = newSession.getData("Config.UI.Placeholder");
+	//UI::art::context ctx = gfx->context();
+	//UI* element = new UI(ctx, cfg);
 
 	//init map
 	for (auto item : sessionConfig->get_child("Map"))
@@ -124,6 +129,7 @@ void Application::run()
 			playing = false;
 
 		bool leftMouseReleased = false;
+		bool rightMouseReleased = false;
 
 		while (SDL_PollEvent(&e))
 		{
@@ -172,7 +178,10 @@ void Application::run()
 
 			if (e.type == SDL_MOUSEBUTTONUP)
 			{
-				leftMouseReleased = true;
+				if (e.button.button == SDL_BUTTON_LEFT)
+					leftMouseReleased = true;
+				if (e.button.button == SDL_BUTTON_RIGHT)
+					rightMouseReleased = true;
 			}
 		}
 
@@ -203,12 +212,37 @@ void Application::run()
 			auto cell = gfx->getCell(scalar(mousex, mousey));
 			gfx->highlightCell(cell);
 			sim.select(cell);
-			//activeUIs.push_back();
+
+			bool hasMenu = false;
+			for (auto ui : activeUIs)
+			{
+				if (ui->getType() == "Menu")
+				{
+					hasMenu = true;
+				}
+			}
+
+			if (!hasMenu)
+			{
+				auto uicfg = boost::property_tree::ptree(newSession->get_child("Config.UI.InfoMenu"));
+				auto area = boost::property_tree::ptree();
+				area.put<int>("w", uicfg.get<int>("Background.Area.w"));
+				area.put<int>("h", uicfg.get<int>("Background.Area.h"));
+				area.put<int>("x", mousex);
+				area.put<int>("y", mousey);
+				uicfg.put_child("Background.Area", area);
+				activeUIs.push_back(new UI(gfx->context(), uicfg));
+			}
 		}
+
+		if (rightMouseReleased && sim.selectedUnit != NULL)
+			sim.selectedUnit->destination = gfx->getCell(scalar(mousex, mousey));
 
 		if (sim.selectedUnit != NULL)
 		{
 			gfx->highlightCell(sim.selectedUnit->position);
+			if (sim.selectedUnit->destination.is_initialized())
+				gfx->highlightCell(sim.selectedUnit->destination.get());
 		}
 
 		boost::property_tree::ptree newData{};
@@ -218,8 +252,16 @@ void Application::run()
 		wind.put<int>("E", rand() % 100);
 		wind.put<int>("W", rand() % 100);
 		newData.put_child("Wind",wind);
-		element->update(&newData);
-		element->draw();
+		//element->update(&newData);
+		//element->draw();
+
+		//std::vector<std::vector<UI*>::iterator> toRemove;
+		for (auto& item : activeUIs)
+		{
+			item->update(&newData);
+			item->draw();
+		}
+		std::remove_if(begin(activeUIs), end(activeUIs), [](UI* i){ return !i->isAlive(); });
 
 		gfx->present();
 

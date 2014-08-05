@@ -71,28 +71,50 @@ void Facet_Sim::connect(_cfg& session)
 
 void Facet_Sim::update(int ms)
 {
-	for (auto& item : data[tile::FIREGROUP]){
-		auto fire = static_cast<tile::Fire*>(item.second);
-		auto location = item.first;
-		if (fire->fireTime >= 0)
-			fire->fireTime += ms;
-		if (fire->fireTime > 1000)
+	group_type newUnits;
+	std::vector<scalar> oldUnits;
+	for (auto& group : data)
+	{
+		for (auto& item : group.second)
 		{
-			for (auto subItem : around(tile::OBJECTGROUP, location))
-			{
-				using tile::operator&&;
+			item.second->update(ms);
 
-				if (subItem.second->config("burnable") && tile::make_flag("burns") )
+			if (group.first == tile::UNITGROUP)
+			{
+				auto unit = static_cast<tile::Unit*>(item.second);
+				if (unit->position != item.first)
 				{
-					auto subLocation = subItem.first;
-					//auto it = data[tile::FIREGROUP].find(subLocation);
-					insert(subLocation, fire->root->id);
+					newUnits.insert(std::pair<group_type::key_type, group_type::mapped_type>(unit->position, item.second));
+					oldUnits.push_back(item.first);
 				}
 			}
-			fire->fireTime = -1;
-				//subItem.second->apply(tile::make_flag( "burning" ));
+
+			if (group.first == tile::FIREGROUP)
+			{
+				auto fire = static_cast<tile::Fire*>(item.second);
+				auto location = item.first;
+				if (fire->fireTime > 1000)
+				{
+					for (auto subItem : around(tile::OBJECTGROUP, location))
+					{
+						using tile::operator&&;
+
+						if (subItem.second->config("burnable") && tile::make_flag("burns"))
+						{
+							auto subLocation = subItem.first;
+							//auto it = data[tile::FIREGROUP].find(subLocation);
+							insert(subLocation, fire->root->id);
+						}
+					}
+					fire->fireTime = -1;
+					//subItem.second->apply(tile::make_flag( "burning" ));
+				}
+			}
 		}
 	}
+	data[tile::UNITGROUP].insert(begin(newUnits), end(newUnits));
+	for (auto& pos : oldUnits)
+		data[tile::UNITGROUP].erase(pos);
 }
 
 template <typename T>

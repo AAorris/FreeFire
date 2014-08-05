@@ -71,6 +71,14 @@ namespace tile
 	{
 	public:
 		scalar position;
+		enum DIRECTION {
+			DIR_NONE,
+			DIR_UP = 0x0001,
+			DIR_LEFT = 0x0010,
+			DIR_RIGHT = 0x0100,
+			DIR_DOWN = 0x1000
+		};
+		int dir = DIR_NONE;
 		boost::optional<scalar> destination;
 		timer_type move_time = 0;
 		//
@@ -84,6 +92,7 @@ namespace tile
 		timer_type fireTime = 0;
 		Fire(const tile::Template* config);
 		virtual void operator=(const Template*);
+		virtual void update(int ms);
 	};
 }
 
