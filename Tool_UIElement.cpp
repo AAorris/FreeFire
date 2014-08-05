@@ -68,7 +68,7 @@ namespace modern {
 		}
 		Texture() = delete;
 		Texture(const Context* ctx, const std::string& path) : data{ makeTexture(ctx, path) } {
-
+			context = ctx;
 		}
 		Texture(Texture&& other) : data{ std::move(other.data) }, context{ std::move(other.context) } {}
 		Texture(std::unique_ptr<Context>& ctx, const std::string& path) :
@@ -136,7 +136,7 @@ namespace modern {
 			return result;
 		}
 		int draw() {
-			return SDL_RenderCopy(**texture->context, **texture, NULL, *applyTransform());
+			return SDL_RenderCopy(texture->context->getRenderer(), texture->data.get(), NULL, *applyTransform());
 		}
 	};
 
@@ -214,9 +214,26 @@ UI::Image::Image(UI::art::context p_context, const UI::info& a)
 {
 	context.first = p_context.first;
 	context.second = p_context.second;
-	area = UI::art::area{ a.get<int>("x"), a.get<int>("y"), a.get<int>("w"), a.get<int>("h") };
+	int x, y, w, h;
+	x = a.get<int>("x");
+	y = a.get<int>("y");
+	w = a.get<int>("w");
+	h = a.get<int>("h");
+	if (a.data() == "relative")
+	{
+		int screenw, screenh;
+		SDL_GetWindowSize(p_context.first, &screenw, &screenh);
+		x *= screenw;
+		x /= 100;
+		y *= screenh;
+		y /= 100;
+		w *= screenw;
+		w /= 100;
+		h *= screenh;
+		h /= 100;
+	}
+	area = UI::art::area{ x,y,w,h };
 	canvas = make::canvas(get::artist(p_context), get::size(area));
-	
 }
 
 SDL_Point UI::Image::center()
@@ -228,17 +245,20 @@ UI::Image::Image() : context{ NULL, NULL }, canvas{ NULL }
 {
 	area = { 0, 0, 0, 0 };
 }
+
 /*------------------------------------------------------------------------------------------------------------*
 *-------------------------------------------------------------------------------------------------------------*/
 
 class UI::Interface
 {
 public:
+	bool alive = true;
 	//Texture staticData;
+	UI::Image* background = nullptr;
 	Interface() = default;
 	virtual UI::Image* renderBackground() = 0;
 	virtual void update(UI::info* info = NULL) = 0;
-	virtual int draw(UI::Image image) = 0;
+	virtual int draw() = 0;
 	virtual ~Interface() = default;
 };
 
@@ -258,12 +278,17 @@ public:
 	{
 	}
 	virtual UI::Image* renderBackground() {
-		auto background = new Image(context, info.get_child("Area"));
+
+		if (background == nullptr)
+			background = new Image(context, info.get_child("Area"));
+
 		area = background->area;
 		auto color = info.get_optional<std::string>("Background.Color");
 		auto imagePath = info.get_optional<std::string>("Background.Image");
 		auto renderer = get::artist(context);
 		SDL_SetRenderTarget(renderer, background->canvas);
+
+		SDL_RenderClear(renderer);
 
 		if (color.is_initialized()) {
 			SDL_Color c{};
@@ -285,9 +310,9 @@ public:
 	virtual void update(UI::info* p_info = NULL)
 	{
 	}
-	virtual int draw(UI::Image image)
+	virtual int draw()
 	{
-		return render::image(&image);
+		return render::image(background);
 	}
 };
 
@@ -320,16 +345,16 @@ public:
 			}
 		}
 	}
-	virtual int draw(UI::Image image)
+	virtual int draw()
 	{
-		BasicImplementation::draw(image);
+		BasicImplementation::draw();
 		auto center = SDL_Point{ area.w*.5, area.h*.5 };
 		SDL_RenderCopyEx(context.second, needle, NULL, &area, rotation * (180/3.14), &center, SDL_FLIP_NONE);
 		return 1;
 	}
 };
 
-class UI::SelectionUI : public UI::Interface{
+class UI::MenuUI : public UI::Interface{
 public:
 	using Texture = modern::Texture;
 	using Image = modern::StaticImage;
@@ -348,7 +373,8 @@ public:
 	Context* context;
 	Container icons;
 
-	SelectionUI(SDL_Window* w, SDL_Renderer* r, const int& iconSize, std::vector<string> items) : size{ iconSize } {
+	MenuUI(SDL_Window* w, SDL_Renderer* r, const int& iconSize, std::vector<string> items) : size{ iconSize } {
+		alive = true;
 		icons = Container();
 		*context = Context{ w, r };
 		for (const string& path : items) {
@@ -363,12 +389,40 @@ public:
 	}
 
 	/*Requires cfg contains an integer called iconsize at its root.*/
-	SelectionUI(UI::art::context* ctx, UI::info* cfg) : size{ cfg->get<int>("iconSize") }
+	MenuUI(UI::art::context* ctx, UI::info* cfg) : size{ cfg->get<int>("iconSize") }
 	{
+		alive = true;
 		context = new Context(ctx->first, ctx->second);
+
+		auto a = cfg->get_child("Background.Area");
+		int x, y, w, h;
+		x = a.get<int>("x");
+		y = a.get<int>("y");
+		w = a.get<int>("w");
+		h = a.get<int>("h");
+		if (a.data() == "relative")
+		{
+			int screenw, screenh;
+			SDL_GetWindowSize(context->window, &screenw, &screenh);
+			x *= screenw;
+			x /= 100;
+			y *= screenh;
+			y /= 100;
+			w *= screenw;
+			w /= 100;
+			h *= screenh;
+			h /= 100;
+		}
+
 		for (auto& item : cfg->get_child("Items"))
 		{
 			Texture* t = new Texture(context, item.second.get<std::string>("Icon"));
+			Image* i = new Image(
+				t,
+				Area(x,y,size,size),
+				Transform(scalar(0,0), scalar(1, 1), 0)
+				);
+			icons.push_back(std::make_pair(t, i));
 			//data
 		}
 	}
@@ -379,20 +433,28 @@ public:
 
 	virtual void update(UI::info* info = NULL) {
 		int i = 0;
+		if (!alive)
+			return;
 		for (auto& item : icons)
 		{
-			int desiredX = i*size;
+			if (!alive)
+				return;
+			int desiredX = i*(2*size+10);
+			auto& x = item.second->transform.position.x;
+			x = x*0.9 + desiredX*.1;
+			if (abs(x - desiredX) < 2 && desiredX != 0)
+				alive = false;
 			++i;
 		}
 	}
 
-	virtual int draw(UI::Image image) {
+	virtual int draw() {
 		for (int i = 0; i < icons.size(); i++)
 			icons[i].second->draw();
 		return 1;
 	}
 
-	virtual ~SelectionUI() {
+	virtual ~MenuUI() {
 		for (int i = 0; i < icons.size(); i++){
 			delete icons[i].first;
 			delete icons[i].second;
@@ -413,7 +475,7 @@ UI::Interface* UI::makeDetail(UI::info& cfg, UI::art::context& ctx)
 	}
 	else if (type == "Menu")
 	{
-		return new SelectionUI(&ctx, &cfg);
+		return new MenuUI(&ctx, &cfg);
 	}
 	else {
 		return new BasicImplementation(ctx, &cfg);
@@ -424,14 +486,17 @@ UI::Interface* UI::makeDetail(UI::info& cfg, UI::art::context& ctx)
 
 UI::UI(UI::art::context& ctx, UI::info& cfg) : detail{ makeDetail(cfg,ctx) }
 {
-	background = detail->renderBackground();
+	detail->renderBackground();
 }
 UI::~UI(){}
 void UI::draw()
 {
-	detail->draw(*background);
+	detail->draw();
 }
 void UI::update(UI::info* newData)
 {
 	detail->update(newData);
+}
+bool UI::isAlive() {
+	return detail->alive;
 }

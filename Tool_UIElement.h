@@ -4,7 +4,8 @@
 #include <boost\property_tree\ptree_fwd.hpp>
 
 
-/*This will be a standard UI Element. UI Elements have a background image*, are capable of being drawn in or individual windows, */
+/*The UI class is an interface class. Inside the cpp file are different ui implementations.
+The constructor chooses which implementation to use based on the config.*/
 class UI : protected Tool
 {
 public:
@@ -33,19 +34,19 @@ private:
 	class Interface;
 	class BasicImplementation;
 	class CompassUI;
-	class SelectionUI;
+	class MenuUI;
 	std::unique_ptr<Interface> detail;
 	Interface* makeDetail(UI::info& cfg, UI::art::context& ctx);
-
+	void isAlive(bool setting);
 public:
+	/*Describes that the UI is running and should stay in the menu*/
+	bool isAlive();
 	UI(art::context& ctx, info& cfg);
 	/*This class deals with unique ptrs, so it should stay unique. Transfer with move...*/
 	void operator=(const UI& other) = delete;
 	~UI();
 	//bool isPoppedOut();
 	//void setIsPoppedOut(bool popped);
-
-	UI::Image* background;
 
 	void draw();
 	void update(info* data);

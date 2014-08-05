@@ -97,13 +97,33 @@ namespace tile {
 	void Unit::update(int ms)
 	{
 		Data::update(ms);
-		//unitTime += ms;
+		move_time += ms;
 		if (destination.is_initialized())
 		{
-			//if (unitTime > 1000)
-			//{
-				//setStatus("canMove", true);
-			//}
+			if (move_time > 1000)
+			{
+				auto delta = destination.get() - position;
+				if ((abs(delta.x) == 0 || abs(delta.y) == 0) || abs(delta.x)+abs(delta.y) > 0)
+				{
+					if (abs(delta.x) > abs(delta.y))
+						dir = (delta.x > 0) ? DIR_RIGHT : DIR_LEFT;
+					else
+						dir = (delta.y > 0) ? DIR_UP : DIR_DOWN;
+				}
+
+				if (position == destination.get())
+					dir = DIR_NONE;
+				if (dir == DIR_UP)
+					position.y += 1;
+				if (dir == DIR_DOWN)
+					position.y -= 1;
+				if (dir == DIR_LEFT)
+					position.x -= 1;
+				if (dir == DIR_RIGHT)
+					position.x += 1;
+
+				move_time = 0;
+			}
 		}
 	}
 
@@ -116,5 +136,12 @@ namespace tile {
 	void Fire::operator=(const Template* p_root){
 		Data::operator=(p_root);
 		fireTime = 0;
+	}
+
+	void Fire::update(int ms)
+	{
+		Data::update(ms);
+		if (fireTime >= 0)
+			fireTime += ms;
 	}
 }
