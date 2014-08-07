@@ -55,7 +55,7 @@ namespace tile
 		const tile::Template* root;
 		//bool burning;
 
-		Data(const tile::Template* config);
+		Data(const tile::Template* config, const scalar& posRef);
 		virtual ~Data() = default;
 		virtual void operator=(const Template*);
 		virtual bool operator==(const Data& other);
@@ -71,6 +71,14 @@ namespace tile
 	{
 	public:
 		scalar position;
+
+		const std::string status_idle = "idle";
+		const std::string status_moving = "moving";
+		const std::string status_mobilizing = "mobilizing";
+		const std::string status_demobilizing = "demobilizing";
+
+		std::string status = status_idle;
+
 		enum DIRECTION {
 			DIR_NONE,
 			DIR_UP = 0x0001,
@@ -82,7 +90,7 @@ namespace tile
 		boost::optional<scalar> destination;
 		timer_type move_time = 0;
 		//
-		Unit(const tile::Template* config);
+		Unit(const tile::Template* config, const scalar& posRef);
 		virtual void update(int ms);
 	};
 
@@ -90,7 +98,7 @@ namespace tile
 	{
 	public:
 		timer_type fireTime = 0;
-		Fire(const tile::Template* config);
+		Fire(const tile::Template* config, const scalar& posRef);
 		virtual void operator=(const Template*);
 		virtual void update(int ms);
 	};

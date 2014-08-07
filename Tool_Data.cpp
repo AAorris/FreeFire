@@ -52,7 +52,7 @@ namespace tile {
 
 	//---------------------------------------------------------------------
 	
-	Data::Data(const tile::Template* config) : root{ config }
+	Data::Data(const tile::Template* config, const scalar& posRef) : root{ config }
 	{
 		id = root->id;
 		status = properties_type{};
@@ -90,9 +90,9 @@ namespace tile {
 			status[key] = val;
 	}
 
-	Unit::Unit(const tile::Template* config) : tile::Data(config)
+	Unit::Unit(const tile::Template* config, const scalar& posRef) : tile::Data(config, posRef)
 	{
-		//unitTime = 0;
+		position = posRef;
 	}
 	void Unit::update(int ms)
 	{
@@ -107,12 +107,11 @@ namespace tile {
 				{
 					if (abs(delta.x) > abs(delta.y))
 						dir = (delta.x > 0) ? DIR_RIGHT : DIR_LEFT;
-					else
+					else if (abs(delta.x) + abs(delta.y) > 0)
 						dir = (delta.y > 0) ? DIR_UP : DIR_DOWN;
+
 				}
 
-				if (position == destination.get())
-					dir = DIR_NONE;
 				if (dir == DIR_UP)
 					position.y += 1;
 				if (dir == DIR_DOWN)
@@ -122,13 +121,19 @@ namespace tile {
 				if (dir == DIR_RIGHT)
 					position.x += 1;
 
+				scalar dest = destination.get_value_or(position);
+				if (position == dest) {
+					destination.reset();
+					dir = DIR_NONE;
+				}
+
 				move_time = 0;
 			}
 		}
 	}
 
 
-	Fire::Fire(const tile::Template* config) : tile::Data(config)
+	Fire::Fire(const tile::Template* config, const scalar& posRef) : tile::Data(config, posRef)
 	{
 		fireTime = 0;
 	}

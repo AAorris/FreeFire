@@ -1,30 +1,30 @@
 Templates {
 	u 1 {
-		asset "fire_fighter.png" {
-			small "fire_fighter-small.png"
+		asset "assets/fire_fighter.png" {
+			small "assets/fire_fighter-small.png"
 		}
 		properties {
 		}
 	}
 	u 2 {
-		asset "fire_breaker.png" {
-			small "fire_breaker-small.png"
+		asset "assets/fire_breaker.png" {
+			small "assets/fire_breaker-small.png"
 		}
 	}
 	o 3 {
-		asset "tree.png" 
+		asset "assets/tree.png" 
 		properties {
 			burnable 1
 		}
 	}
 	o 4 {
-		asset "pine_tree.png"
+		asset "assets/pine_tree.png"
 		properties {
 			burnable 1
 		}
 	}
 	f F {
-		asset "fire.png"
+		asset "assets/fire.png"
 	}
 }
 Settings {
@@ -34,7 +34,10 @@ Settings {
 Map {
 	2 "-10 -10"
 	1 "6, 15"
-	2 "0 0"
+
+	2 "4 4"
+	2 "-4 5"
+
 	F "1 0"
 	3 "2 0"
 	3 "3 0"

@@ -40,9 +40,16 @@ scalar::scalar(const std::string& s)
 
 scalar scalar::operator%(const int& mod)
 {
-	int _x = x;
-	int _y = y;
+	int _x = static_cast<int>((x));
+	int _y = static_cast<int>((y));
 	return scalar(_x%mod, _y%mod);
+}
+
+scalar scalar::round(const scalar& s)
+{
+	int _x = static_cast<int>(std::round(s.x));
+	int _y = static_cast<int>(std::round(s.y));
+	return scalar(_x, _y);
 }
 
 bool scalar::operator==(const scalar& other)
