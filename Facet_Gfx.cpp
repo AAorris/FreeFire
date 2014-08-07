@@ -31,13 +31,19 @@ struct IMPL {
 	scalar screenSize;
 	double zoom;
 
-	Impl(scalar size = scalar(1024,768))
+	Impl(scalar size = scalar(1024,768), bool relativeToScreen = false)
 	{
 		SDL_DisplayMode screen;
 		SDL_GetCurrentDisplayMode(0, &screen);
 
-		screen.w = size.x;
-		screen.h = size.y;
+		if (relativeToScreen){
+			screen.w *= size.x / 100;
+			screen.h *= size.y / 100;
+		}
+		else {
+			screen.w = size.x;
+			screen.h = size.y;
+		}
 
 		screenSize = scalar{ double(screen.w), double(screen.h) };
 
@@ -199,7 +205,7 @@ struct IMPL {
 
 /*--------------------------------------------------------*/
 
-CTOR(scalar size = scalar(1024,768)) : p{ new Impl(size) } {
+CTOR(scalar size = scalar(1024,768), bool relativeToScreen ) : p{ new Impl(size, relativeToScreen) } {
 	std::string error = SDL_GetError();
 	SDL_SetRenderDrawBlendMode(p->renderer, SDL_BLENDMODE_BLEND);
 }
@@ -368,6 +374,11 @@ void CLASS::present()
 scalar CLASS::getCell(const scalar& mousePos)
 {
 	return p->Transform(mousePos - p->origin, p->SCREENSPACE, p->SIMSPACE);
+}
+
+double CLASS::getZoom()
+{
+	return p->zoom;
 }
  
 void CLASS::highlightCell(const scalar& cell)

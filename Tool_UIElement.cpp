@@ -14,8 +14,9 @@
 /*------------------------------------------------------------------------------------------------------------*
 												HELPER CODE
 *-------------------------------------------------------------------------------------------------------------*/
-
-
+namespace std {
+	void default_delete<SDL_Texture>::operator()(SDL_Texture* _ptr) const { SDL_DestroyTexture(_ptr); }
+}
 
 namespace modern {
 
@@ -53,9 +54,13 @@ namespace modern {
 		Area(int x, int y, int w, int h) {
 			rect = SDL_Rect{ x, y, w, h };
 		}
+		bool Area::contains(int x, int y)
+		{
+			return (x > rect.x && x < rect.x + rect.w && y > rect.y && y < rect.y + rect.w);
+		}
 	};
 
-
+	/*Wrapper around SDL_Texture, allowing for textures to be automatically cleaned up, and be bound to their window/renderer.*/
 	struct Texture {
 		std::unique_ptr<SDL_Texture> data;
 		const Context* context;
@@ -66,8 +71,11 @@ namespace modern {
 			SDL_FreeSurface(temp);
 			return ptr;
 		}
-		Texture() = delete;
+		Texture(){}
 		Texture(const Context* ctx, const std::string& path) : data{ makeTexture(ctx, path) } {
+			context = ctx;
+		}
+		Texture(const Context* ctx, SDL_Texture* t) : data{ t } {
 			context = ctx;
 		}
 		Texture(Texture&& other) : data{ std::move(other.data) }, context{ std::move(other.context) } {}
@@ -75,6 +83,11 @@ namespace modern {
 			data{ makeTexture(ctx.get(), path) }
 		{
 			context = ctx.get();
+		}
+		Area getRect(int x = 0, int y = 0) {
+			Area area = Area{ x, y, 16, 16 };
+			SDL_QueryTexture(data.get(), NULL, NULL, &area.rect.w, &area.rect.h);
+			return area;
 		}
 		int draw(Area& dst = Area(), Area& src = Area()) {
 			return SDL_RenderCopy(**context, data.get(), *src, *dst);
@@ -140,6 +153,70 @@ namespace modern {
 		}
 	};
 
+	struct Text : public Texture {
+		std::string content;
+		SDL_Color color;
+		int x;
+		int y;
+		Text(Context* context, std::string text, int px, int py, TTF_Font* font, SDL_Color c = SDL_Color{ 255, 255, 255, 255 }) : Texture(context, makeText(context,text,font))
+		{
+			x = px;
+			y = py;
+			content = text;
+			color = c;
+		}
+		SDL_Texture* makeText(Context* context, std::string text, TTF_Font* font)
+		{
+			SDL_Surface* temp = TTF_RenderText_Blended(font, text.c_str(), color);
+			SDL_Texture* tex = SDL_CreateTextureFromSurface(context->getRenderer(), temp);
+			SDL_FreeSurface(temp);
+			return tex;
+		}
+		int draw() {
+			return Texture::draw(getRect(x,y));
+		}
+	};
+
+	struct Button {
+		Context* ctx;
+		TTF_Font* font;
+		SDL_Colour backgroundColour;
+		Area area;
+		bool hovering;
+		boost::optional<StaticImage> backgroundImage;
+		std::vector<Text*> texts;
+		Button(Context* context, Area a, SDL_Color bg = SDL_Color{ 0, 0, 0, 0 }, TTF_Font* f = NULL){ ctx = context; area = a; font = f; backgroundColour = bg; }
+		void addText(int x, int y, std::string content, SDL_Color color = SDL_Color{ 255, 255, 255, 255 }) {
+			if (font!=NULL)
+				texts.push_back(new Text(ctx, content, x, y, font, color));
+		}
+		void update(int mx, int my) {
+			hovering = area.contains(mx, my);
+		}
+		int draw() {
+			SDL_SetRenderDrawColor(ctx->renderer, backgroundColour.r, backgroundColour.g, backgroundColour.b, backgroundColour.a);
+			SDL_RenderFillRect(ctx->renderer, *area);
+			if (backgroundImage.is_initialized()) {
+				backgroundImage->draw();
+			}
+			if (hovering) {
+				SDL_SetRenderDrawColor(ctx->renderer, 60, 60, 60, 60);
+				SDL_RenderFillRect(ctx->renderer, *area);
+			}
+			for (auto& text : texts)
+			{
+				text->draw();
+			}
+			return 1;
+		}
+		~Button() {
+			for (auto ptr : texts)
+			{
+				delete ptr;
+			}
+		}
+	};
+
 	template <int Tilesize>
 	struct Tile {
 		StaticImage image;
@@ -161,7 +238,7 @@ namespace modern {
 }
 namespace std {
 	/*The cleanup for @SDL_Texture is defined here for unique_ptrs. */
-	void default_delete<SDL_Texture>::operator()(SDL_Texture* _ptr) const { SDL_DestroyTexture(_ptr); }
+//	void default_delete<SDL_Texture>::operator()(SDL_Texture* _ptr) const { SDL_DestroyTexture(_ptr); }
 	/*The cleanup for @Context is defined here for unique_ptrs. */
 	void default_delete<modern::Context>::operator()(modern::Context* _ptr) const {
 		SDL_DestroyRenderer(_ptr->renderer);
@@ -258,6 +335,7 @@ public:
 	Interface() = default;
 	virtual UI::Image* renderBackground() = 0;
 	virtual void update(UI::info* info = NULL) = 0;
+	virtual UI::info&& getRequestStructure() = 0;
 	virtual int draw() = 0;
 	virtual ~Interface() = default;
 };
@@ -277,6 +355,8 @@ public:
 	virtual ~BasicImplementation()
 	{
 	}
+
+	virtual UI::info&& getRequestStructure() { return UI::info{}; }
 	virtual UI::Image* renderBackground() {
 
 		if (background == nullptr)
@@ -330,6 +410,8 @@ public:
 	{
 		SDL_DestroyTexture(needle);
 	}
+
+	virtual UI::info&& getRequestStructure() { return UI::info{}; }
 	virtual void update(UI::info* p_info = NULL)
 	{
 		if (p_info != NULL)
@@ -354,10 +436,10 @@ public:
 	}
 };
 
-class UI::MenuUI : public UI::Interface{
+class UI::ListUI : public UI::Interface {
 public:
 	using Texture = modern::Texture;
-	using Image = modern::StaticImage;
+	using MenuItem = modern::Button;
 	using Context = modern::Context;
 	using Config = modern::Config;
 	using Area = modern::Area;
@@ -365,66 +447,91 @@ public:
 
 	using string = std::string;
 
-	using Item = std::pair<Texture*, Image*>;
+	using Item = std::pair<Texture*, MenuItem*>;
 	using Container = std::vector<Item>;
 
 	//
+	double expansion = 0.0;
 	const int size;
 	Context* context;
 	Container icons;
-
-	MenuUI(SDL_Window* w, SDL_Renderer* r, const int& iconSize, std::vector<string> items) : size{ iconSize } {
-		alive = true;
-		icons = Container();
+	TTF_Font* font;
+	Area area;
+	int incidents;
+	int acknowledgedIncidents = 0;
+	ListUI(SDL_Window* w, SDL_Renderer* r, const int& iconSize, std::vector<string> items) : size{ iconSize } {
+		init();
 		*context = Context{ w, r };
 		for (const string& path : items) {
 			Texture* t = new Texture(context, path);
-			Image* i = new Image(
-				t,
-				Area(scalar(iconSize, iconSize)),
-				Transform(scalar(0, 0), scalar(1, 1), 0)
-				);
+			MenuItem* i = new MenuItem(context, Area{ 0, 0, size, size }, SDL_Color{ 60, 60, 60, 60 }, font);
 			icons.push_back(std::make_pair(t, i));
 		}
 	}
 
 	/*Requires cfg contains an integer called iconsize at its root.*/
-	MenuUI(UI::art::context* ctx, UI::info* cfg) : size{ cfg->get<int>("iconSize") }
+	ListUI(UI::art::context* ctx, UI::info* cfg) : size{ cfg->get<int>("iconSize") }
 	{
-		alive = true;
+		init();
 		context = new Context(ctx->first, ctx->second);
 
-		auto a = cfg->get_child("Background.Area");
+		auto a = cfg->get_child("Area");
 		int x, y, w, h;
 		x = a.get<int>("x");
 		y = a.get<int>("y");
 		w = a.get<int>("w");
 		h = a.get<int>("h");
+
 		if (a.data() == "relative")
 		{
-			int screenw, screenh;
-			SDL_GetWindowSize(context->window, &screenw, &screenh);
-			x *= screenw;
-			x /= 100;
-			y *= screenh;
-			y /= 100;
-			w *= screenw;
-			w /= 100;
-			h *= screenh;
-			h /= 100;
+			int screenW = 0; int screenH = 0;
+			SDL_GetWindowSize(ctx->first, &screenW, &screenH);
+			x = screenW * x / 100;
+			y = screenH * y / 100;
+			w = screenW * w / 100;
+			h = screenH * h / 100;
 		}
 
-		for (auto& item : cfg->get_child("Items"))
+		area = Area(x, y, w, h);
+
+		int offset = 0;
+
+		std::vector<std::string> texts = { { "Cancel", "Move", "FireBreak", "FireFight" } };
+		using boost::property_tree::ptree;
+		auto items = cfg->get_child_optional("Items");
+		if (items.is_initialized())
 		{
-			Texture* t = new Texture(context, item.second.get<std::string>("Icon"));
-			Image* i = new Image(
-				t,
-				Area(x,y,size,size),
-				Transform(scalar(0,0), scalar(1, 1), 0)
-				);
-			icons.push_back(std::make_pair(t, i));
-			//data
+			for (auto& item : items.get())
+			{
+				Texture* t = new Texture(context, item.second.get<std::string>("Icon"));
+				MenuItem* i = new MenuItem(context, Area(x + (offset * 10) + (w*++offset), y, w, h), SDL_Color{ 255, 0, 0, 255 }, font);
+				i->addText(i->area.rect.x + 10, i->area.rect.y + 10, std::to_string(offset));
+				i->addText(i->area.rect.x + 10, i->area.rect.y + 40, texts[offset - 1]);
+				icons.push_back(std::make_pair(t, i));
+				//data
+			}
 		}
+	}
+
+	virtual ~ListUI() {
+		for (int i = 0; i < icons.size(); i++){
+			delete icons[i].first;
+			delete icons[i].second;
+		}
+		TTF_CloseFont(font);
+	}
+	virtual UI::info&& getRequestStructure() {
+		std::istringstream request("Incidents\n");
+		UI::info result;
+		boost::property_tree::read_info(request, result);
+		return std::move(result);
+	}
+
+	void init() {
+		expansion = 0;
+		font = TTF_OpenFont("normalFont.ttf", 32);
+		alive = true;
+		icons = Container();
 	}
 
 	virtual UI::Image* renderBackground() {
@@ -435,17 +542,137 @@ public:
 		int i = 0;
 		if (!alive)
 			return;
-		for (auto& item : icons)
+
+		auto mouseData = info->get_child_optional("Mouse");
+		int x, y, left, right, middle; //mouse info
+		bool mouseUpdated = mouseData.is_initialized();
+		if (mouseUpdated)
 		{
-			if (!alive)
-				return;
-			int desiredX = i*(2*size+10);
-			auto& x = item.second->transform.position.x;
-			x = x*0.9 + desiredX*.1;
-			if (abs(x - desiredX) < 2 && desiredX != 0)
-				alive = false;
-			++i;
+			x = mouseData->get<int>("x");
+			y = mouseData->get<int>("y");
+			left = mouseData->get_optional<int>("left").get_value_or(0);
+			right = mouseData->get_optional<int>("right").get_value_or(0);
+			middle = mouseData->get_optional<int>("middle").get_value_or(0);
 		}
+		auto incidentUpdate = info->get_optional<int>("Incidents");
+		if (incidentUpdate.is_initialized())
+		{
+			incidents = incidentUpdate.get();
+		}
+		if (area.contains(x, y) && left > 0)
+		{
+			acknowledgedIncidents = incidents;
+		}
+	}
+
+	virtual int draw() {
+		modern::Text&& text = modern::Text(context, std::to_string(incidents-acknowledgedIncidents)+" Incidents", area.rect.x + 10, area.rect.y + 10, font, SDL_Color{ 0, 0, 0, 255 });
+		SDL_SetRenderDrawColor(context->getRenderer(), 255, 255, 255, 255);
+		SDL_RenderFillRect(context->getRenderer(), &area.rect);
+		text.draw();
+		return 1;
+	}
+};
+
+class UI::MenuUI : public UI::Interface {
+public:
+	using Texture = modern::Texture;
+	using MenuItem = modern::Button;
+	using Context = modern::Context;
+	using Config = modern::Config;
+	using Area = modern::Area;
+	using Transform = modern::Transform;
+
+	using string = std::string;
+
+	using Item = std::pair<Texture*, MenuItem*>;
+	using Container = std::vector<Item>;
+
+	//
+	double expansion = 0.0;
+	const int size;
+	Context* context;
+	Container icons;
+	TTF_Font* font;
+
+	MenuUI(SDL_Window* w, SDL_Renderer* r, const int& iconSize, std::vector<string> items) : size{ iconSize } {
+		init();
+		*context = Context{ w, r };
+		for (const string& path : items) {
+			Texture* t = new Texture(context, path);
+			MenuItem* i = new MenuItem(context, Area{ 0, 0, size, size }, SDL_Color{ 60, 60, 60, 60 }, font);
+			icons.push_back(std::make_pair(t, i));
+		}
+	}
+
+	/*Requires cfg contains an integer called iconsize at its root.*/
+	MenuUI(UI::art::context* ctx, UI::info* cfg) : size{ cfg->get<int>("iconSize") }
+	{
+		init();
+		context = new Context(ctx->first, ctx->second);
+
+		auto a = cfg->get_child("Background.Area");
+		int x, y, w, h;
+		x = a.get<int>("x");
+		y = a.get<int>("y");
+		w = a.get<int>("w");
+		h = a.get<int>("h");
+
+		int offset = 0;
+
+		std::vector<std::string> texts = { { "Cancel", "Move", "FireBreak", "FireFight" } };
+
+		//for (auto& item : cfg->get_child("Items"))
+		for (int n = 0; n < 4; n++)
+		{
+			Texture* t = new Texture();//(context, item.second.get<std::string>("Icon"));
+			MenuItem* i = new MenuItem(context, Area(x + (offset*10) + (w*++offset), y, w, h), SDL_Color{ 255, 0, 0, 255 }, font);
+			i->addText(i->area.rect.x + 10, i->area.rect.y + 10, std::to_string(offset));
+			i->addText(i->area.rect.x + 10, i->area.rect.y + 40, texts[offset - 1]);
+			icons.push_back(std::make_pair(t, i));
+			//data
+		}
+	}
+
+	virtual UI::info&& getRequestStructure() { return UI::info{}; }
+
+
+	void init() {
+		expansion = 0;
+		font = TTF_OpenFont("normalFont.ttf", 12);
+		alive = true;
+		icons = Container();
+	}
+
+	virtual UI::Image* renderBackground() {
+		return nullptr;
+	}
+
+	virtual void update(UI::info* info = NULL) {
+		int i = 0;
+		if (!alive)
+			return;
+
+		auto mouseData = info->get_child_optional("Mouse");
+		int x, y, left, right, middle; //mouse info
+		bool mouseUpdated = mouseData.is_initialized();
+		if (mouseUpdated)
+		{
+			x = mouseData->get<int>("x");
+			y = mouseData->get<int>("y");
+			left = mouseData->get_optional<int>("left").get_value_or(0);
+			right = mouseData->get_optional<int>("right").get_value_or(0);
+			middle = mouseData->get_optional<int>("middle").get_value_or(0);
+		}
+
+		for (auto icon : icons)
+		{
+			icon.second->update(x, y);
+			if (icon.second->hovering && left == 2)
+				alive = false;
+		}
+
+		expansion += (1 - expansion)*0.1;
 	}
 
 	virtual int draw() {
@@ -459,6 +686,7 @@ public:
 			delete icons[i].first;
 			delete icons[i].second;
 		}
+		TTF_CloseFont(font);
 	}
 };
 
@@ -477,6 +705,10 @@ UI::Interface* UI::makeDetail(UI::info& cfg, UI::art::context& ctx)
 	{
 		return new MenuUI(&ctx, &cfg);
 	}
+	else if (type == "List")
+	{
+		return new ListUI(&ctx, &cfg);
+	}
 	else {
 		return new BasicImplementation(ctx, &cfg);
 	}
@@ -486,9 +718,10 @@ UI::Interface* UI::makeDetail(UI::info& cfg, UI::art::context& ctx)
 
 UI::UI(UI::art::context& ctx, UI::info& cfg) : detail{ makeDetail(cfg,ctx) }
 {
+	type = cfg.get<std::string>("Type");
 	detail->renderBackground();
 }
-UI::~UI(){}
+UI::~UI(){ type = "empty"; }
 void UI::draw()
 {
 	detail->draw();
@@ -499,4 +732,7 @@ void UI::update(UI::info* newData)
 }
 bool UI::isAlive() {
 	return detail->alive;
+}
+void UI::isAlive(bool setting) {
+	detail->alive = setting;
 }

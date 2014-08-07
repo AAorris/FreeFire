@@ -29,7 +29,7 @@ private:
 		>;
 public:
 
-	Facet_Gfx(scalar size);
+	Facet_Gfx(scalar size, bool relativeToScreen = false);
 	virtual ~Facet_Gfx();
 	Facet_Gfx(const Facet_Gfx& c) = delete;
 
@@ -49,6 +49,7 @@ public:
 	void clear();
 	void resize(int x, int y);
 	void loadAsset(const std::string& path, int id);
+	double getZoom();
 
 	void zoomCamera(const double& dz);
 	void moveCamera(const scalar& dp);

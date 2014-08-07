@@ -43,7 +43,9 @@ public:
 	//arithmetic (1d)
 	scalar scalar::operator*(const double& value);
 	scalar scalar::operator/(const double& value);
+	static scalar scalar::round(const scalar& s);
 };
+
 
 bool operator<(const scalar& l, const scalar& r);
 bool operator==(const scalar& l, const scalar& r);

@@ -26,6 +26,11 @@ for(int y = begin.y; y <= end.y; y++){\
 
 CTOR() : data{} {}
 
+int windN = 0;
+int windS = 0;
+int windE = 0;
+int windW = 0;
+
 tile::Data* CLASS::operator()(const tile::group_type& group, const scalar& pos)
 {
 	return data[group][pos];
@@ -73,6 +78,15 @@ void Facet_Sim::update(int ms)
 {
 	group_type newUnits;
 	std::vector<scalar> oldUnits;
+	std::vector<scalar> oldFires;
+
+	windN += rand() % 1000;
+	windS += rand() % 1000;
+	windE += rand() % 1000;
+	windW += rand() % 1000;
+
+	int incidents = 0;
+
 	for (auto& group : data)
 	{
 		for (auto& item : group.second)
@@ -85,6 +99,7 @@ void Facet_Sim::update(int ms)
 				if (unit->position != item.first)
 				{
 					newUnits.insert(std::pair<group_type::key_type, group_type::mapped_type>(unit->position, item.second));
+					item.second = NULL;
 					oldUnits.push_back(item.first);
 				}
 			}
@@ -93,7 +108,43 @@ void Facet_Sim::update(int ms)
 			{
 				auto fire = static_cast<tile::Fire*>(item.second);
 				auto location = item.first;
-				if (fire->fireTime > 1000)
+
+
+				if (windW > windE && fire->fireTime > 10000 / 5)
+				{
+					for (auto subItem : around(tile::OBJECTGROUP, location))
+					{
+						if (subItem.first.x > item.first.x)
+							continue;
+						using tile::operator&&;
+						if (subItem.second->config("burnable") && tile::make_flag("burns"))
+						{
+							auto subLocation = subItem.first;
+							//auto it = data[tile::FIREGROUP].find(subLocation);
+							if (insert(subLocation, fire->root->id))
+								++incidents;
+						}
+					}
+				}
+
+				if (windW < windE && fire->fireTime > 10000 / 5)
+				{
+					for (auto subItem : around(tile::OBJECTGROUP, location))
+					{
+						if (subItem.first.x < item.first.x)
+							continue;
+						using tile::operator&&;
+						if (subItem.second->config("burnable") && tile::make_flag("burns"))
+						{
+							auto subLocation = subItem.first;
+							//auto it = data[tile::FIREGROUP].find(subLocation);
+							if (insert(subLocation, fire->root->id))
+								++incidents;
+						}
+					}
+				}
+
+				if (fire->fireTime > 10000)
 				{
 					for (auto subItem : around(tile::OBJECTGROUP, location))
 					{
@@ -103,7 +154,8 @@ void Facet_Sim::update(int ms)
 						{
 							auto subLocation = subItem.first;
 							//auto it = data[tile::FIREGROUP].find(subLocation);
-							insert(subLocation, fire->root->id);
+							if (insert(subLocation, fire->root->id))
+								++incidents;
 						}
 					}
 					fire->fireTime = -1;
@@ -112,19 +164,29 @@ void Facet_Sim::update(int ms)
 			}
 		}
 	}
+	information.put<int>("Incidents", information.get_optional<int>("Incidents").get_value_or(0) + incidents);
 	data[tile::UNITGROUP].insert(begin(newUnits), end(newUnits));
 	for (auto& pos : oldUnits)
 		data[tile::UNITGROUP].erase(pos);
+	for (auto& pos : oldFires) {
+		auto it = data[tile::FIREGROUP].find(pos);
+		if (it == end(data[tile::FIREGROUP]))
+			continue;
+		data[tile::FIREGROUP].erase(it);
+	}
 }
 
 template <typename T>
 bool setHelper(const scalar& pos, Facet_Sim::group_type& group, const Facet_Sim::template_type& root)
 {
 	auto& it = group.find(pos);
-	if (it != end(group))
+	if (it != end(group)){
 		it->second->operator=(&root);
-	else
-		return group.insert(std::make_pair(pos, new T( &root ))).second;
+	}
+	else {
+		return group.insert( std::make_pair(pos, new T(&root, pos)) ).second;
+	}
+	
 }
 
 template <typename T>
@@ -134,7 +196,7 @@ bool insertHelper(const scalar& pos, Facet_Sim::group_type& group, const Facet_S
 	if (it != end(group))
 		return false;//it->second->operator=(&root);
 	else
-		return group.insert(std::make_pair(pos, new T(&root))).second;
+		return group.insert(std::make_pair(pos, new T(&root, pos))).second;
 }
 
 bool Facet_Sim::insert(const scalar& pos, const template_key& key)
@@ -180,9 +242,10 @@ void Facet_Sim::set(const scalar& pos, const template_key& key)
 
 void Facet_Sim::select(const scalar& cell)
 {
-	int x, y;
-	x = cell.x;
-	y = cell.y;
+	int x = 0;
+	int y = 0;
+	x = static_cast<int>(round(cell.x));
+	y = static_cast<int>(round(cell.y));
 
 	auto it = data[tile::UNITGROUP].find(scalar(x, y));
 	if (it != end(data[tile::UNITGROUP]))
@@ -191,5 +254,17 @@ void Facet_Sim::select(const scalar& cell)
 		selectedUnit = nullptr;
 }
 
+int& Facet_Sim::wind(std::string direction)
+{
+	if (direction == "N")
+		return windN;
+	if (direction == "E")
+		return windE;
+	if (direction == "S")
+		return windS;
+	if (direction == "W")
+		return windW;
+	throw std::runtime_error("correct wind not specified");
+}
 
 #undef CLASS

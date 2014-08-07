@@ -35,12 +35,15 @@ private:
 	class BasicImplementation;
 	class CompassUI;
 	class MenuUI;
+	class ListUI;
 	std::unique_ptr<Interface> detail;
 	Interface* makeDetail(UI::info& cfg, UI::art::context& ctx);
-	void isAlive(bool setting);
 public:
 	/*Describes that the UI is running and should stay in the menu*/
+	void isAlive(bool setting);
 	bool isAlive();
+	std::string type;
+
 	UI(art::context& ctx, info& cfg);
 	/*This class deals with unique ptrs, so it should stay unique. Transfer with move...*/
 	void operator=(const UI& other) = delete;

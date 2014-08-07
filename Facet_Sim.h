@@ -6,6 +6,7 @@
 #include "Tool_Configurable.h"
 #include "Tool_Data.h"
 #include "scalar.h"
+#include <boost\property_tree\ptree.hpp>
 //#include <map>
 #include <unordered_map>
 #include <set>
@@ -16,6 +17,7 @@ public:
 	using template_type = tile::Template;
 	using template_key = tile::id_type;
 	using group_type = std::unordered_map<scalar, tile::Data*>;
+	using ptree = boost::property_tree::ptree;
 	//attempting to order lexicographically by id, and then position.
 	//Imagine updating all trees, all houses, all units, all fires.
 	//This should help with branch prediction when update checks id (maybe?)
@@ -25,6 +27,7 @@ public:
 			group_type
 		>;
 	master_type data;
+	ptree information;
 	std::map<template_key, const template_type> templates;
 
 	int time = 0;
@@ -39,6 +42,7 @@ public:
 	void set(const scalar& pos, const template_key& key);
 	bool insert(const scalar& pos, const template_key& key);
 	void update(int ms);
+	int& wind(std::string direction = "N");
 	std::vector<group_type::value_type> around(const tile::group_type& type, const scalar& pos);
 	
 };
