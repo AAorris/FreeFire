@@ -320,14 +320,16 @@ void Facet_Gfx::draw(master_type& data)
 		auto& group = data.find(id);
 		if (group != end(data))
 		{
-			for (auto item : group->second)
+			for (auto stack : group->second)
 			{
-				if (item.data == nullptr)
-					continue;
-				auto& id = item->id;
-				auto& pos = item.pos;
-				draw(id, pos);
-
+				auto& pos = stack.first;
+				for (auto item : stack.second)
+				{
+					if (item == nullptr)
+						continue;
+					auto& id = item->id;
+					draw(id, pos);
+				}
 			}
 		}
 	}
@@ -338,13 +340,16 @@ void Facet_Gfx::draw(master_type& data)
 	SDL_RenderClear(p->renderer);
 	SDL_SetRenderDrawColor(p->renderer, 0, 0, 0, 0);
 	//fog of war
-	for (auto& item : data[tile::UNITGROUP])
+	for (auto& stack : data[tile::UNITGROUP])
 	{
-		auto& pos = item.pos;
-		//auto& res = (*p->find(item.second->id))->second;
-		//int size = res.getSize();
-		//SDL_Rect rect{ pos.x - size, pos.y - size, size * 3, size * 3 };
-		//p->drawAround(scalar(0,0));
+		auto& pos = stack.first;
+		for (auto item : stack.second)
+		{
+			//auto& res = (*p->find(item.second->id))->second;
+			//int size = res.getSize();
+			//SDL_Rect rect{ pos.x - size, pos.y - size, size * 3, size * 3 };
+			//p->drawAround(scalar(0,0));
+		}
 	}
 	SDL_SetRenderDrawBlendMode(p->renderer, SDL_BLENDMODE_BLEND);
 	SDL_SetRenderTarget(p->renderer, NULL);

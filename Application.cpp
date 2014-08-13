@@ -72,10 +72,9 @@ void Application::run()
 	try {
 		for (auto item : sessionConfig->get_child("Map"))
 		{
-
 			char key = item.first.front();
 			scalar pos = scalar{ item.second.data() };
-			sim.set(pos, key);
+			sim.insert(pos, key);
 		}
 	}
 	catch (std::exception e)
@@ -93,10 +92,13 @@ void Application::run()
 
 	const int size = sessionConfig->get_optional<int>("Settings.worldSize").get_value_or(100);
 	const double coverage = sessionConfig->get_optional<double>("Settings.treeCoverage").get_value_or(0.5);
-	for (int i = 0; i < int(size*size*coverage); i++)
-		sim.set(scalar(rand() % size - size / 2, rand() % size - size / 2), '3');//put(AA::Pos(rand() % size - size / 2, rand() % size - size/2), '3');
-	for (int i = 0; i < int(size*size*coverage); i++)
-		sim.set(scalar(rand() % size - size / 2, rand() % size - size / 2), '4');
+	for (int i = 0; i < size*size; i++)
+	{
+		int x = i%size - size/2;
+		int y = i / size - size/2;
+		if (rand() % 100 < coverage * 100)
+			sim.insert(scalar(x, y), (rand() % 100 > 50) ? '3' : '4');
+	}
 
 	while (SDL_QuitRequested() == false && playing)
 	{

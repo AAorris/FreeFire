@@ -31,14 +31,16 @@ int windS = 0;
 int windE = 0;
 int windW = 0;
 
-tile::Data* CLASS::operator()(const tile::group_type& group, const scalar& pos)
+facet::group_item_value& CLASS::operator()(const tile::group_type& group, const scalar& pos)
 {
-	return data[group].find(facet::sim_item{ pos, NULL })->data;
+	using facet::Group;
+	using facet::Item;
+	return Item(pos, &Group(group,&data)->second)->second;
 }
 
-std::vector<CLASS::group_type::value_type> CLASS::around(const tile::group_type& type, const scalar& pos)
+std::vector<std::pair<scalar, tile::Data*>> CLASS::around(const tile::group_type& type, const scalar& pos)
 {
-	std::vector<group_type::value_type> result{};
+	std::vector<std::pair<scalar, tile::Data*>> result{};
 	auto begin = pos - scalar(1, 1);
 	auto end = pos + scalar(1, 1);
 
@@ -46,8 +48,11 @@ std::vector<CLASS::group_type::value_type> CLASS::around(const tile::group_type&
 		auto sample = scalar( x, y );
 		auto& group = data[type];
 		auto it = group.find(sample);
-		if(it!=std::end(group))
-			result.push_back(*it);
+		if (it != std::end(group))
+		{
+			for (auto set_it : it->second)
+				result.push_back(std::pair<scalar, tile::Data*>(sample,set_it));
+		}
 	} forEnd
 
 	return result;
@@ -85,9 +90,9 @@ void Facet_Sim::connect(_cfg& session)
 
 void Facet_Sim::update(int ms)
 {
-	group_type newUnits;
-	std::vector<scalar> oldUnits;
-	std::vector<scalar> oldFires;
+	std::vector<tile::Unit*> newUnits;
+	std::vector<std::pair<scalar, tile::Data*>> oldUnits;
+	std::vector<std::pair<scalar, tile::Data*>> oldFires;
 
 	windN += rand() % 1000;
 	windS += rand() % 1000;
@@ -98,121 +103,95 @@ void Facet_Sim::update(int ms)
 
 	for (auto& group : data)
 	{
-		for (auto& item : group.second)
+		for (auto& stack : group.second)
 		{
-			if (item.second == nullptr)
-				continue;
-			item.second->update(ms);
-
-			if (group.first == tile::UNITGROUP)
+			for (auto& item : stack.second)
 			{
-				auto unit = static_cast<tile::Unit*>(item.second);
-				if (unit->position != item.first)
+				if (item == nullptr)
+					continue;
+				auto& data = item;
+				data->update(ms);
+
+				if (group.first == tile::UNITGROUP)
 				{
-					newUnits.insert(std::pair<group_type::key_type, group_type::mapped_type>(unit->position, item.second));
-					item.second = NULL;
-					oldUnits.push_back(item.first);
-				}
-			}
-
-			if (group.first == tile::FIREGROUP)
-			{
-				auto fire = static_cast<tile::Fire*>(item.second);
-				auto location = item.first;
-
-
-				if (windW > windE && fire->fireTime > 10000 / 5)
-				{
-					for (auto subItem : around(tile::OBJECTGROUP, location))
+					auto unit = static_cast<tile::Unit*>(data);
+					auto key = stack.first;
+					if (unit->position != key)
 					{
-						if (subItem.first.x > item.first.x)
-							continue;
-						if (subItem.second->hasProperty("Burnable"))
-						{
-							auto subLocation = subItem.first;
-							//auto it = data[tile::FIREGROUP].find(subLocation);
-							if (insert(subLocation, fire->root->id))
-								++incidents;
-						}
+						newUnits.push_back(unit);
+						oldUnits.push_back(std::pair<scalar,tile::Data*>(key,data));
 					}
 				}
 
-				if (windW < windE && fire->fireTime > 10000 / 5)
+				if (group.first == tile::FIREGROUP)
 				{
-					for (auto subItem : around(tile::OBJECTGROUP, location))
-					{
-						if (subItem.first.x < item.first.x)
-							continue;
-						if (subItem.second->hasProperty("Burnable"))
-						{
-							auto subLocation = subItem.first;
-							//auto it = data[tile::FIREGROUP].find(subLocation);
-							if (insert(subLocation, fire->root->id))
-								++incidents;
-							subItem.second->setProperty("burning", 1);
-						}
-					}
-				}
+					auto fire = static_cast<tile::Fire*>(data);
+					auto location = stack.first;
 
-				if (fire->fireTime > 10000)
-				{
-					for (auto subItem : around(tile::OBJECTGROUP, location))
+					if (windW > windE && fire->fireTime > 10000 / 5)
 					{
-						if (subItem.second->hasProperty("Burnable"))
+						for (auto& subItem : around(tile::OBJECTGROUP, location))
 						{
-							auto subLocation = subItem.first;
-							//auto it = data[tile::FIREGROUP].find(subLocation);
-							if (insert(subLocation, fire->root->id))
-								++incidents;
-							subItem.second->setProperty("burning", 1);
+							if (subItem.first.x > location.x)
+								continue;
+							if (subItem.second->hasProperty("Burnable"))
+							{
+								auto subLocation = subItem.first;
+								//auto it = data[tile::FIREGROUP].find(subLocation);
+								if (insert(subLocation, fire->root->id))
+									++incidents;
+							}
 						}
 					}
-					fire->fireTime = -1;
-					//subItem.second->apply(tile::make_flag( "burning" ));
+
+					if (windW < windE && fire->fireTime > 10000 / 5)
+					{
+						for (auto& subItem : around(tile::OBJECTGROUP, location))
+						{
+							if (subItem.first.x < location.x)
+								continue;
+							if (subItem.second->hasProperty("Burnable"))
+							{
+								auto subLocation = subItem.first;
+								//auto it = data[tile::FIREGROUP].find(subLocation);
+								if (insert(subLocation, fire->root->id))
+									++incidents;
+								subItem.second->setProperty("burning", 1);
+							}
+						}
+					}
+
+					if (fire->fireTime > 10000)
+					{
+						for (auto subItem : around(tile::OBJECTGROUP, location))
+						{
+							if (subItem.second->hasProperty("Burnable"))
+							{
+								auto subLocation = subItem.first;
+								//auto it = data[tile::FIREGROUP].find(subLocation);
+								if (insert(subLocation, fire->root->id))
+									++incidents;
+								subItem.second->setProperty("burning", 1);
+							}
+						}
+						fire->fireTime = -1;
+						//subItem.second->apply(tile::make_flag( "burning" ));
+					}
 				}
 			}
 		}
 	}
 	information.put<int>("Incidents", information.get_optional<int>("Incidents").get_value_or(0) + incidents);
 	auto& units = data[tile::UNITGROUP];
-	for (auto& pos : oldUnits){
-		auto begin = units.lower_bound(pos);
-		auto end = units.upper_bound(pos);
-		begin++;
-		units.erase(begin,end);
+	auto& fires = data[tile::FIREGROUP];
+	for (auto it : oldUnits){
+		units[it.first].erase(it.second);
 	}
-	data[tile::UNITGROUP].insert(begin(newUnits), end(newUnits));
-	for (auto& pos : oldFires) {
-		auto it = data[tile::FIREGROUP].find(pos);
-		if (it == end(data[tile::FIREGROUP]))
-			continue;
-		data[tile::FIREGROUP].erase(it);
+	for (auto it: oldFires) {
+		fires[it.first].erase(it.second);
 	}
-}
-
-template <typename T>
-bool setHelper(const scalar& pos, Facet_Sim::group_type& group, const Facet_Sim::template_type& root)
-{
-	auto& it = group.find(pos);
-	if (it != end(group)){
-		it->second->operator=(&root);
-		return true;
-	}
-	else {
-		facet::insert(pos, new T(&root, pos), &group);
-		return true;
-	}
-}
-
-template <typename T>
-bool insertHelper(const scalar& pos, Facet_Sim::group_type& group, const Facet_Sim::template_type& root)
-{
-	auto it = facet::item(pos,&group);
-	if (it != end(group))
-		return false;//it->second->operator=(&root);
-	else{
-		facet::insert(pos, new T(&root, pos), &group);
-		return true;
+	for (auto& it : newUnits) {
+		units[it->position].insert(it);
 	}
 }
 
@@ -220,41 +199,25 @@ bool Facet_Sim::insert(const scalar& pos, const template_key& key)
 {
 	const template_type& root = templates[key];
 	auto& group = data[root.group];
-	if (root.group == tile::FIREGROUP)
-		return insertHelper<tile::Fire>(pos, group, root);
-	else if (root.group == tile::OBJECTGROUP)
-		return insertHelper<tile::Data>(pos, group, root);
-	else if (root.group == tile::UNITGROUP)
-		return insertHelper<tile::Unit>(pos, group, root);
-	else if (root.group == tile::WEATHERGROUP) return false;
+	auto& stack = group[pos];
+	if (root.group == tile::FIREGROUP && stack.size() == 0) {
+		stack.insert(new tile::Fire(&root, pos));
+		return true;
+	}
+	if (root.group == tile::OBJECTGROUP) {
+		stack.insert(new tile::Data(&root, pos));
+		return true;
+	}
+	if (root.group == tile::UNITGROUP) {
+		stack.insert(new tile::Unit(&root, pos));
+		return true;
+	}
+	if (root.group == tile::WEATHERGROUP) {
+		stack.insert(new tile::Data(&root, pos));
+		return true;
+	}
 		//insertHelper<tile::Fire>(pos, group, root);
 	return false;
-}
-
-void Facet_Sim::set(const scalar& pos, const template_key& key)
-{
-	auto& root = templates[key];
-	auto& group = data[root.group];
-	if (root.group == tile::FIREGROUP)
-		setHelper<tile::Fire>(pos, group, root);
-	else if (root.group == tile::OBJECTGROUP)
-		setHelper<tile::Data>(pos, group, root);
-	else if (root.group == tile::UNITGROUP)
-		setHelper<tile::Unit>(pos, group, root);
-	else if (root.group == tile::WEATHERGROUP) return;
-	//master_type::iterator& group_it = data.find(root.group);
-	/*if (group_it == end(data)) {
-		group_it = data.insert(std::make_pair(root.group, group_type{})).first;
-	}
-	auto it = group_it->second.find(pos);
-	if (it != end(group_it->second))
-	{
-		auto obj = it->second;
-		obj->operator=(&root);
-	}
-	else {
-		group_it->second.insert(std::make_pair(pos, new tile::Data{ &root }));
-	}*/
 }
 
 void Facet_Sim::select(const scalar& cell)
@@ -264,9 +227,9 @@ void Facet_Sim::select(const scalar& cell)
 	x = static_cast<int>(round(cell.x));
 	y = static_cast<int>(round(cell.y));
 
-	auto it = data[tile::UNITGROUP].find(scalar(x, y));
+	auto it = facet::Item(scalar(x,y),&data[tile::UNITGROUP]);
 	if (it != end(data[tile::UNITGROUP]))
-		selectedUnit = static_cast<tile::Unit*>(it->second);
+		selectedUnit = static_cast<tile::Unit*>(*it->second.begin());
 	else
 		selectedUnit = nullptr;
 }

@@ -16,7 +16,7 @@ class Facet_Sim
 {
 public:
 	using master_type = facet::master_type;
-	using group_type = facet::group_type;
+	using group_type = facet::master_group_type;
 	using ptree = facet::ptree;
 	using template_key = facet::template_key;
 	using template_type = facet::template_type;
@@ -31,14 +31,14 @@ public:
 
 	Facet_Sim();
 	~Facet_Sim()=default;
-	tile::Data* operator()(const tile::group_type& group, const scalar& pos);
+	facet::group_item_value& operator()(const tile::group_type& group, const scalar& pos);
 
 	void connect(_cfg& session);
-	void set(const scalar& pos, const template_key& key);
+	//void set(const scalar& pos, const template_key& key);
 	bool insert(const scalar& pos, const template_key& key);
 	void update(int ms);
 	int& wind(std::string direction = "N");
-	std::vector<group_type::value_type> around(const tile::group_type& type, const scalar& pos);
+	std::vector<std::pair<scalar, tile::Data*>> around(const tile::group_type& type, const scalar& pos);
 	
 };
 
