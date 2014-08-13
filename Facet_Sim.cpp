@@ -19,8 +19,8 @@ all sorts of other goodies.*/
 /*Iterate in a square from x1y1 to x2y2 giving you x and y.
  ! Remember 'forEnd'!*/
 #define forArea(begin,end)\
-for(int y = begin.y; y <= end.y; y++){\
-	for(int x = begin.x; x <= end.x; x++)
+for (int y = static_cast<int>(begin.y); y <= static_cast<int>(end.y); y++){\
+for (int x = static_cast<int>(begin.x); x <= static_cast<int>(end.x); x++)
 /*Just to close the outer for loop*/
 #define forEnd }
 
@@ -33,7 +33,7 @@ int windW = 0;
 
 tile::Data* CLASS::operator()(const tile::group_type& group, const scalar& pos)
 {
-	return data[group][pos];
+	return data[group].find(facet::sim_item{ pos, NULL })->data;
 }
 
 std::vector<CLASS::group_type::value_type> CLASS::around(const tile::group_type& type, const scalar& pos)
@@ -55,22 +55,31 @@ std::vector<CLASS::group_type::value_type> CLASS::around(const tile::group_type&
 
 void Facet_Sim::connect(_cfg& session)
 {
-	for (auto item : session->get_child("Templates"))
-	{
-		tile::group_type group = item.first[0]; //nab the first character
-		tile::id_type id = item.second.data()[0];
-		tile::Template::assets_type assets = tile::Template::assets_type{};
-		for (auto asset : item.second.get_child("asset"))
-			assets.insert(asset.second.data());
-		auto properties = tile::properties_type{};
-		auto propertyList = item.second.get_child_optional("properties");
-		if (propertyList.is_initialized())
+	try {
+		information.add_child("Config", session.data);
+		for (auto templateConfigItem : session->get_child("Templates"))
 		{
-			for (auto property : *propertyList)
-				properties.insert(tile::properties_type::value_type{ property.first, property.second.get_value<bool>() });
+			tile::group_type group = templateConfigItem.first[0]; //nab the first character
+			tile::id_type id = templateConfigItem.second.data()[0];
+			tile::Template::assets_type assets = tile::Template::assets_type{};
+			for (auto asset : templateConfigItem.second.get_child("asset"))
+				assets.insert(asset.second.data());
+
+			auto properties = tile::properties_type{};
+			auto propertyList = templateConfigItem.second.get_child_optional("properties");
+
+			if (propertyList.is_initialized()) {
+				properties.data = propertyList.get();
+			}
+
+
+			auto t = tile::Template{ group, id, assets, properties };
+			templates.insert(std::make_pair(t.id, t));
 		}
-		auto t = tile::Template{ group, id, assets, properties };
-		templates.insert(std::make_pair(t.id, t));
+	}
+	catch (std::exception e)
+	{
+		SDL_ShowSimpleMessageBox(0, "Configuration problem", "Couldn't connect simulation to configuration because of a missing file...", NULL);
 	}
 }
 
@@ -91,6 +100,8 @@ void Facet_Sim::update(int ms)
 	{
 		for (auto& item : group.second)
 		{
+			if (item.second == nullptr)
+				continue;
 			item.second->update(ms);
 
 			if (group.first == tile::UNITGROUP)
@@ -116,8 +127,7 @@ void Facet_Sim::update(int ms)
 					{
 						if (subItem.first.x > item.first.x)
 							continue;
-						using tile::operator&&;
-						if (subItem.second->config("burnable") && tile::make_flag("burns"))
+						if (subItem.second->hasProperty("Burnable"))
 						{
 							auto subLocation = subItem.first;
 							//auto it = data[tile::FIREGROUP].find(subLocation);
@@ -133,13 +143,13 @@ void Facet_Sim::update(int ms)
 					{
 						if (subItem.first.x < item.first.x)
 							continue;
-						using tile::operator&&;
-						if (subItem.second->config("burnable") && tile::make_flag("burns"))
+						if (subItem.second->hasProperty("Burnable"))
 						{
 							auto subLocation = subItem.first;
 							//auto it = data[tile::FIREGROUP].find(subLocation);
 							if (insert(subLocation, fire->root->id))
 								++incidents;
+							subItem.second->setProperty("burning", 1);
 						}
 					}
 				}
@@ -148,14 +158,13 @@ void Facet_Sim::update(int ms)
 				{
 					for (auto subItem : around(tile::OBJECTGROUP, location))
 					{
-						using tile::operator&&;
-
-						if (subItem.second->config("burnable") && tile::make_flag("burns"))
+						if (subItem.second->hasProperty("Burnable"))
 						{
 							auto subLocation = subItem.first;
 							//auto it = data[tile::FIREGROUP].find(subLocation);
 							if (insert(subLocation, fire->root->id))
 								++incidents;
+							subItem.second->setProperty("burning", 1);
 						}
 					}
 					fire->fireTime = -1;
@@ -165,9 +174,14 @@ void Facet_Sim::update(int ms)
 		}
 	}
 	information.put<int>("Incidents", information.get_optional<int>("Incidents").get_value_or(0) + incidents);
+	auto& units = data[tile::UNITGROUP];
+	for (auto& pos : oldUnits){
+		auto begin = units.lower_bound(pos);
+		auto end = units.upper_bound(pos);
+		begin++;
+		units.erase(begin,end);
+	}
 	data[tile::UNITGROUP].insert(begin(newUnits), end(newUnits));
-	for (auto& pos : oldUnits)
-		data[tile::UNITGROUP].erase(pos);
 	for (auto& pos : oldFires) {
 		auto it = data[tile::FIREGROUP].find(pos);
 		if (it == end(data[tile::FIREGROUP]))
@@ -182,21 +196,24 @@ bool setHelper(const scalar& pos, Facet_Sim::group_type& group, const Facet_Sim:
 	auto& it = group.find(pos);
 	if (it != end(group)){
 		it->second->operator=(&root);
+		return true;
 	}
 	else {
-		return group.insert( std::make_pair(pos, new T(&root, pos)) ).second;
+		facet::insert(pos, new T(&root, pos), &group);
+		return true;
 	}
-	
 }
 
 template <typename T>
 bool insertHelper(const scalar& pos, Facet_Sim::group_type& group, const Facet_Sim::template_type& root)
 {
-	auto& it = group.find(pos);
+	auto it = facet::item(pos,&group);
 	if (it != end(group))
 		return false;//it->second->operator=(&root);
-	else
-		return group.insert(std::make_pair(pos, new T(&root, pos))).second;
+	else{
+		facet::insert(pos, new T(&root, pos), &group);
+		return true;
+	}
 }
 
 bool Facet_Sim::insert(const scalar& pos, const template_key& key)

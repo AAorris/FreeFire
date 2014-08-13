@@ -11,11 +11,15 @@ public:
 	scalar(double _x, double _y) : x{ _x }, y{ _y }{}
 	scalar(const std::string& s);
 	scalar() : x{ 0 }, y{ 0 }{}
+	/*round brackets for doubles*/
 	const double& scalar::operator()(const int& i) const {
-		switch (i){ case X:return x; case Y:return y; }
+		if (i == 0) return x;
+		if (i == 1) return y;
 	}
-	const double& scalar::operator[](const int& i) const {
-		switch (i){ case X:return x; case Y:return y; }
+	/*square brackets for integers*/
+	int scalar::operator[](const int& i) const {
+		if (i == 0) return static_cast<int>(x);
+		if (i == 1) return static_cast<int>(y);
 	}
 	//memory
 	bool scalar::operator!=(const scalar& other);
@@ -53,9 +57,9 @@ bool operator==(const scalar& l, const scalar& r);
 template<> struct std::hash<scalar>
 {
 	size_t operator()(const scalar& s) const {
-		unsigned long long val = s.y;
+		unsigned long long val = static_cast<unsigned long long>(s.y);
 		val = val << sizeof(s.y);
 		val |= static_cast<int>(s.x);
-		return val;
+		return size_t(val);
 	}
 };

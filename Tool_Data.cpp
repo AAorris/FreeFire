@@ -4,28 +4,6 @@
 #include <set>
 
 namespace tile {
-	flag make_flag(const std::string& name){ flag f = flag{ name, 1 }; return f; }
-	void operator|=(properties_type& properties, const flag& f)
-	{
-		auto it = properties.find(f.first);
-		if (it == end(properties))
-			properties.insert(f);
-		else
-			properties[f.first] = f.second;
-	}
-	flag& operator&(const flag& left, const flag& right)
-	{
-		assert(left.first == right.first);
-		return flag{ left.first, left.second&right.second };
-	}
-	bool operator&&(const flag& left, const flag& right)
-	{
-		return left.second && right.second;
-	}
-	bool operator&&(const flag& left, flag& right)
-	{
-		return left.second && right.second;
-	}
 	Template::Template() :
 		group{ 0 },
 		id{ 0 },
@@ -42,57 +20,45 @@ namespace tile {
 	{
 
 	}
-	const tile::flag_type Template::operator()(const flag::first_type& property) const
-	{
-		if (properties.find(property)!=end(properties))
-			return properties.at(property);
-		else
-			return tile::flag_type{};
-	}
 
 	//---------------------------------------------------------------------
 	
 	Data::Data(const tile::Template* config, const scalar& posRef) : root{ config }
 	{
 		id = root->id;
-		status = properties_type{};
+		properties = properties_type{};
 	}
 	void Data::operator=(const Template* p_root)
 	{
 		root = p_root;
 		id = root->id;
-		status = properties_type{};
+		properties = properties_type{};
 	}
 	bool Data::operator==(const Data& other) {
-		return id = other.id;
+		return id == other.id;
 	}
 	bool Data::operator<(const Data& other) {
 		return id < other.id;
 	}
-	void Data::apply(const flag& property) {
-		status |= property & flag{property.first, (*root)(property.first)};
-	}
-	flag Data::config(const flag::first_type& property)
-	{
-		flag f = flag{ property, root->operator()(property) };
-		return f;
-	}
 	void Data::update(int ms)
 	{
-
-	}
-	void Data::setStatus(const flag::first_type& key, const flag::second_type& val)
-	{
-		auto it = status.find(key);
-		if (it == end(status))
-			status.insert(std::make_pair(key, val));
-		else
-			status[key] = val;
 	}
 
 	Unit::Unit(const tile::Template* config, const scalar& posRef) : tile::Data(config, posRef)
 	{
 		position = posRef;
+	}
+	bool Data::hasProperty(const std::string& prop)
+	{
+#ifdef _DEBUG
+		std::string props = root->properties.getData();
+#endif
+		return root->properties.data.get_optional<std::string>(prop).is_initialized();
+		//return false;
+	}
+	void Data::setProperty(const std::string& prop, double value)
+	{
+		properties.data.put<double>(prop, value);
 	}
 	void Unit::update(int ms)
 	{

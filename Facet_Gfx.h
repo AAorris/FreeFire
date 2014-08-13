@@ -1,8 +1,10 @@
 #pragma once
+#include "FACET_GLOBALS.h"
 #include "Facet.h"
 #include "Tool_Asset.h"
 #include "scalar.h"
 #include "camera_data.h"
+//#include "Facet_Sim.h"
 #include "SDLButton.h"
 #include "Tool_Data.h"
 #include <iosfwd>
@@ -18,15 +20,11 @@ private:
 	std::unique_ptr<Impl> p;
 
 
-	using group_type = std::unordered_map<scalar, tile::Data*>;
-	//attempting to order lexicographically by id, and then position.
-	//Imagine updating all trees, all houses, all units, all fires.
-	//This should help with branch prediction when update checks id (maybe?)
-	using master_type =
-		std::unordered_map<
-		tile::group_type,
-		group_type
-		>;
+	using master_type = facet::master_type;
+	using group_type = facet::group_type;
+	using ptree = facet::ptree;
+	using template_key = facet::template_key;
+	using template_type = facet::template_type;
 public:
 
 	Facet_Gfx(scalar size, bool relativeToScreen = false);
@@ -37,7 +35,7 @@ public:
 	const _asset* getAsset(const tile::id_type& key);
 
 	void connect(_cfg& session);
-	void draw(const char& id, const scalar& pos);
+	void draw(const char id, const scalar& pos);
 	void draw(master_type& data);
 	void draw(SDLButton* b);
 	scalar getCell(const scalar& mouse);

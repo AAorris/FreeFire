@@ -15,7 +15,7 @@ public:
 	Tool_Configurable(const std::string& path);
 	Tool_Configurable(Tool_Configurable&& c);
 	~Tool_Configurable() = default;
-	std::string getData(const std::string& path="");
+	std::string getData(const std::string& path="") const;
 	config_type* operator->();
 	config_type operator*();
 	config_type::iterator begin();

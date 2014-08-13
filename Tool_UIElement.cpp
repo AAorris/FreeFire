@@ -11,6 +11,7 @@
 #include <sstream>
 #include <array>
 
+
 /*------------------------------------------------------------------------------------------------------------*
 												HELPER CODE
 *-------------------------------------------------------------------------------------------------------------*/
@@ -30,7 +31,7 @@ namespace modern {
 		Context(SDL_Window* w, SDL_Renderer* r) { window = w; renderer = r; }
 		Context(Context&& other) : window{ std::move(other.window) }, renderer{ std::move(other.renderer) } {}
 		Context(const scalar& size, Uint32 windowFlags = 0, Uint32 renderFlags = SDL_RENDERER_TARGETTEXTURE | SDL_RENDERER_ACCELERATED) {
-			window = SDL_CreateWindow("", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, size.x, size.y, windowFlags);
+			window = SDL_CreateWindow("", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, static_cast<int>(size.x), static_cast<int>(size.y), windowFlags);
 			renderer = SDL_CreateRenderer(window, -1, renderFlags);
 		}
 	};
@@ -49,7 +50,7 @@ namespace modern {
 		}
 		Area(scalar size) {
 			scalar offset = size / -2;
-			rect = SDL_Rect{ offset.x, offset.y, size.x, size.y };
+			rect = SDL_Rect{ static_cast<int>(offset.x), static_cast<int>(offset.y), static_cast<int>(size.x), static_cast<int>(size.y) };
 		}
 		Area(int x, int y, int w, int h) {
 			rect = SDL_Rect{ x, y, w, h };
@@ -140,12 +141,12 @@ namespace modern {
 		}
 		Area applyTransform() {
 			Area result = area;
-			result.rect.x += transform.position.x;
-			result.rect.y += transform.position.y;
-			result.rect.w += result.rect.w * transform.scale.x;
-			result.rect.h += result.rect.h * transform.scale.y;
-			result.rect.x -= (result.rect.w - area.rect.w) / 2;
-			result.rect.y -= (result.rect.h - area.rect.h) / 2;
+			result.rect.x += static_cast<int>(transform.position.x);
+			result.rect.y += static_cast<int>(transform.position.y);
+			result.rect.w += static_cast<int>(result.rect.w * transform.scale.x);
+			result.rect.h += static_cast<int>(result.rect.h * transform.scale.y);
+			result.rect.x -= static_cast<int>((result.rect.w - area.rect.w) / 2);
+			result.rect.y -= static_cast<int>((result.rect.h - area.rect.h) / 2);
 			return result;
 		}
 		int draw() {
@@ -257,10 +258,10 @@ namespace get {
 }
 namespace make {
 	UI::art::canvas canvas(UI::art::artist artist, const scalar& size) {
-		return SDL_CreateTexture(artist, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, size.x, size.y);
+		return SDL_CreateTexture(artist, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, static_cast<int>(size.x), static_cast<int>(size.y));
 	}
 	UI::art::area area(const scalar& size, const scalar& position = scalar(0, 0)) {
-		return UI::art::area{ position.x, position.y, size.x, size.y };
+		return UI::art::area{ static_cast<int>(position.x), static_cast<int>(position.y), static_cast<int>(size.x), static_cast<int>(size.y) };
 	}
 	void target(UI::art::artist a, UI::art::canvas c) {
 		SDL_SetRenderTarget(a, c);
@@ -274,8 +275,8 @@ namespace render {
 		
 		std::vector<SDL_Point> points;
 
-		for (int y = position.y - radius; y <= position.y + radius; y++)
-			for (int x = position.x - radius; x <= position.x + radius; x++)
+		for (int y = static_cast<int>(position.y - radius); y <= static_cast<int>(position.y + radius); y++)
+			for (int x = static_cast<int>(position.x - radius); x <= static_cast<int>(position.x + radius); x++)
 				points.push_back(SDL_Point{ x, y });
 
 		return SDL_RenderDrawPoints(get::renderer(context), points.data(), points.size());
@@ -292,23 +293,30 @@ UI::Image::Image(UI::art::context p_context, const UI::info& a)
 	context.first = p_context.first;
 	context.second = p_context.second;
 	int x, y, w, h;
-	x = a.get<int>("x");
-	y = a.get<int>("y");
-	w = a.get<int>("w");
-	h = a.get<int>("h");
-	if (a.data() == "relative")
+	int screenw, screenh;
+	SDL_GetWindowSize(p_context.first, &screenw, &screenh);
+
+	auto offset = [](int& val, int& relto, UI::info& item) {
+		auto _data = item.data();
+		bool relative = _data[_data.size() - 1] == '%';
+		double value = relative ? std::stod(_data.substr(0, _data.size() - 1)) : std::stod(_data);
+		if (relative)
+			value = value* relative / 100.0;
+		val += value;
+	};
+
+	for (auto i : a )
 	{
-		int screenw, screenh;
-		SDL_GetWindowSize(p_context.first, &screenw, &screenh);
-		x *= screenw;
-		x /= 100;
-		y *= screenh;
-		y /= 100;
-		w *= screenw;
-		w /= 100;
-		h *= screenh;
-		h /= 100;
+		if (i.first == "x")
+			offset(x, screenw, i.second);
+		if (i.first == "y")
+			offset(y, screenh, i.second);
+		if (i.first == "w")
+			offset(w, screenw, i.second);
+		if (i.first == "h")
+			offset(h, screenh, i.second);
 	}
+
 	area = UI::art::area{ x,y,w,h };
 	canvas = make::canvas(get::artist(p_context), get::size(area));
 }
@@ -356,7 +364,7 @@ public:
 	{
 	}
 
-	virtual UI::info&& getRequestStructure() { return UI::info{}; }
+	virtual UI::info&& getRequestStructure() { return std::move(UI::info{}); }
 	virtual UI::Image* renderBackground() {
 
 		if (background == nullptr)
@@ -411,7 +419,7 @@ public:
 		SDL_DestroyTexture(needle);
 	}
 
-	virtual UI::info&& getRequestStructure() { return UI::info{}; }
+	virtual UI::info&& getRequestStructure() { return std::move(UI::info{}); }
 	virtual void update(UI::info* p_info = NULL)
 	{
 		if (p_info != NULL)
@@ -430,7 +438,7 @@ public:
 	virtual int draw()
 	{
 		BasicImplementation::draw();
-		auto center = SDL_Point{ area.w*.5, area.h*.5 };
+		auto center = SDL_Point{ static_cast<int>(area.w*.5), static_cast<int>(area.h*.5) };
 		SDL_RenderCopyEx(context.second, needle, NULL, &area, rotation * (180/3.14), &center, SDL_FLIP_NONE);
 		return 1;
 	}
@@ -514,7 +522,7 @@ public:
 	}
 
 	virtual ~ListUI() {
-		for (int i = 0; i < icons.size(); i++){
+		for (unsigned int i = 0; i < icons.size(); i++){
 			delete icons[i].first;
 			delete icons[i].second;
 		}
@@ -634,7 +642,7 @@ public:
 		}
 	}
 
-	virtual UI::info&& getRequestStructure() { return UI::info{}; }
+	virtual UI::info&& getRequestStructure() { return std::move(UI::info{}); }
 
 
 	void init() {
@@ -676,13 +684,13 @@ public:
 	}
 
 	virtual int draw() {
-		for (int i = 0; i < icons.size(); i++)
+		for (unsigned int i = 0; i < icons.size(); i++)
 			icons[i].second->draw();
 		return 1;
 	}
 
 	virtual ~MenuUI() {
-		for (int i = 0; i < icons.size(); i++){
+		for (unsigned int i = 0; i < icons.size(); i++){
 			delete icons[i].first;
 			delete icons[i].second;
 		}
