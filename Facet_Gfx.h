@@ -21,7 +21,7 @@ private:
 
 
 	using master_type = facet::master_type;
-	using group_type = facet::group_type;
+	using group_type = facet::master_group_type;
 	using ptree = facet::ptree;
 	using template_key = facet::template_key;
 	using template_type = facet::template_type;
