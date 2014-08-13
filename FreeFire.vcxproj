@@ -134,6 +134,7 @@
     <ClInclude Include="Facet.h" />
     <ClInclude Include="Facet_Cfg.h" />
     <ClInclude Include="Facet_Gfx.h" />
+    <ClInclude Include="FACET_GLOBALS.h" />
     <ClInclude Include="Facet_Net.h" />
     <ClInclude Include="Facet_Sim.h" />
     <ClInclude Include="Facet_UI.h" />

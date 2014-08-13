@@ -37,12 +37,12 @@ struct IMPL {
 		SDL_GetCurrentDisplayMode(0, &screen);
 
 		if (relativeToScreen){
-			screen.w *= size.x / 100;
-			screen.h *= size.y / 100;
+			screen.w = static_cast<int>(screen.w*(size.x / 100));
+			screen.h = static_cast<int>(screen.h*(size.y / 100));
 		}
 		else {
-			screen.w = size.x;
-			screen.h = size.y;
+			screen.w = static_cast<int>(size.x);
+			screen.h = static_cast<int>(size.y);
 		}
 
 		screenSize = scalar{ double(screen.w), double(screen.h) };
@@ -84,7 +84,7 @@ struct IMPL {
 	/*Get a tile's type and find it's asset pool.*/
 	potential_result find(const char& id)
 	{
-		int preferredSize = res*zoom;
+		int preferredSize = static_cast<int>(res*zoom);
 
 		potential_result selected{};
 		if (zoom < 1)
@@ -126,9 +126,10 @@ struct IMPL {
 
 		scalar view = Transform(location, SIMSPACE, CAMERASPACE);
 
-		int size = res*zoom;
+		int size = static_cast<int>(res*zoom);
 
-		item.get()->second.draw(view.x, view.y, size, size, true);
+		auto& asset = item.get()->second;
+		asset.draw(static_cast<int>(view.x), static_cast<int>(view.y), size, size, true);
 
 	}
 
@@ -174,9 +175,9 @@ struct IMPL {
 		view *= res*zoom;
 		view += offset + origin;
 
-		double size = res*zoom;
+		int size = static_cast<int>(res*zoom);
 
-		SDL_Rect rect = {view.x, view.y, size, size};
+		SDL_Rect rect = { static_cast<int>(view.x), static_cast<int>(view.y), size, size };
 
 		SDL_RenderFillRect(renderer,&rect);
 		//(*item)->second.draw(view.x, view.y, size, size);
@@ -247,15 +248,21 @@ cameraTool_Data CLASS::getCamera()
 
 void CLASS::connect(_cfg& session)
 {
-	for (auto item : session->get_child("Templates"))
-	{
-		auto mainAsset = item.second.get<std::string>("asset");
-		char key = item.second.data()[0];
-		p->loadAsset(mainAsset, key);
+	try {
+		for (auto item : session->get_child("Templates"))
+		{
+			auto mainAsset = item.second.get<std::string>("asset");
+			char key = item.second.data()[0];
+			p->loadAsset(mainAsset, key);
 
-		auto smallAsset = item.second.get_optional<std::string>("asset.small").get_value_or("");
-		if (smallAsset!="")
-			p->loadSmallAsset(smallAsset, key);
+			auto smallAsset = item.second.get_optional<std::string>("asset.small").get_value_or("");
+			if (smallAsset != "")
+				p->loadSmallAsset(smallAsset, key);
+		}
+	}
+	catch (std::exception e)
+	{
+		SDL_ShowSimpleMessageBox(0, "Configuration problem", "Couldn't connect graphics to configuration because of a missing file...", NULL);
 	}
 }
 
@@ -313,10 +320,12 @@ void Facet_Gfx::draw(master_type& data)
 		auto& group = data.find(id);
 		if (group != end(data))
 		{
-			for (auto& item : group->second)
+			for (auto item : group->second)
 			{
-				auto& id = item.second->id;
-				auto& pos = item.first;
+				if (item.data == nullptr)
+					continue;
+				auto& id = item->id;
+				auto& pos = item.pos;
 				draw(id, pos);
 
 			}
@@ -331,7 +340,7 @@ void Facet_Gfx::draw(master_type& data)
 	//fog of war
 	for (auto& item : data[tile::UNITGROUP])
 	{
-		auto& pos = item.first;
+		auto& pos = item.pos;
 		//auto& res = (*p->find(item.second->id))->second;
 		//int size = res.getSize();
 		//SDL_Rect rect{ pos.x - size, pos.y - size, size * 3, size * 3 };
@@ -348,7 +357,7 @@ std::pair<SDL_Window*, SDL_Renderer*> CLASS::context()
 	return{ p->window, p->renderer };
 }
 
-void CLASS::draw(const char& id, const scalar& pos)
+void CLASS::draw(const char id, const scalar& pos)
 {
 	auto& query = p->find(id);
 	assert(query.is_initialized());
@@ -389,9 +398,9 @@ void CLASS::highlightCell(const scalar& cell)
 
 	//view = view - view % p->res - p->offset*p->res;
 	view = p->Transform(view, p->SIMSPACE, p->SCREENSPACE);
-	int size = p->res*p->zoom;
+	int size = static_cast<int>(p->res*p->zoom);
 
-	auto r = SDL_Rect{ view.x-size/2+p->origin.x, view.y-size/2+p->origin.y, size,size};
+	auto r = SDL_Rect{ static_cast<int>(view.x - size / 2 + p->origin.x), static_cast<int>(view.y - size / 2 + p->origin.y), size, size };
 	SDL_SetRenderDrawColor(p->renderer, 255, 0, 0, 255);
 	SDL_RenderDrawRect(p->renderer, &r);
 }

@@ -30,6 +30,11 @@ public:
 		path = p_path;
 		renderer = p_ren;
 		auto ptr = sdlWrap(IMG_Load(p_path.c_str()));
+		if (ptr.get() == NULL){
+			std::stringstream error;
+			error << "Error, couldn't find this asset : " << path;
+			SDL_ShowSimpleMessageBox(0, "Asset Missing", error.str().c_str(), NULL);
+		}
 		texture = SDL_CreateTextureFromSurface(p_ren, ptr.get());
 		SDL_QueryTexture(texture, NULL, NULL, &w, &h);
 	}
@@ -60,10 +65,6 @@ public:
 		}
 
 		if (SDL_RenderCopy(renderer, texture, NULL, &r)==0) return;
-		else {
-			enum UNINITIALIZED_ASSET{ ERROR };
-			throw ERROR;
-		}
 	}
 
 }; 

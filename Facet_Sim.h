@@ -1,7 +1,8 @@
 #pragma once
+#include "FACET_GLOBALS.h"
 #include "Facet.h"
 #include "Tool_Pos.h"
-#include "Facet_Gfx.h"
+//#include "Facet_Gfx.h"
 #include "camera_data.h"
 #include "Tool_Configurable.h"
 #include "Tool_Data.h"
@@ -14,18 +15,12 @@
 class Facet_Sim
 {
 public:
-	using template_type = tile::Template;
-	using template_key = tile::id_type;
-	using group_type = std::unordered_map<scalar, tile::Data*>;
-	using ptree = boost::property_tree::ptree;
-	//attempting to order lexicographically by id, and then position.
-	//Imagine updating all trees, all houses, all units, all fires.
-	//This should help with branch prediction when update checks id (maybe?)
-	using master_type =
-		std::unordered_map<
-			tile::group_type,
-			group_type
-		>;
+	using master_type = facet::master_type;
+	using group_type = facet::group_type;
+	using ptree = facet::ptree;
+	using template_key = facet::template_key;
+	using template_type = facet::template_type;
+
 	master_type data;
 	ptree information;
 	std::map<template_key, const template_type> templates;

@@ -10,7 +10,15 @@
 
 CTOR(const std::string& path)
 {
-	boost::property_tree::read_info(path, data);
+	try {
+		boost::property_tree::read_info(path, data);
+	}
+	catch (std::exception e)
+	{
+		std::stringstream error;
+		error << "Configuration file error : " << e.what();
+		SDL_ShowSimpleMessageBox(0, "Configuration Missing",error.str().c_str(),NULL);
+	}
 }
 
 CTOR()
@@ -28,7 +36,7 @@ CTOR(CLASS&& other)
 	data = std::move(other.data);
 }
 
-std::string CLASS::getData(const std::string& path)
+std::string CLASS::getData(const std::string& path) const
 {
 	std::stringstream ss{""};
 	boost::property_tree::write_info(ss, data.get_child(path));

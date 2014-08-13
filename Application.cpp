@@ -56,19 +56,30 @@ void Application::run()
 
 	_cfg newSession = _cfg{ "assets/Session.INFO" };
 	auto a = newSession.getData();
-	for (auto item : newSession->get_child("Config.UI"))
-	{
-		if (item.second.get<std::string>("Type") != "Menu")
-			activeUIs.push_back(new UI(gfx->context(), item.second));
+	auto items = newSession->get_child_optional("Config.UI");
+	if (items.is_initialized()){
+		for (auto item : items.get())
+		{
+			if (item.second.get<std::string>("Type") != "Menu")
+				activeUIs.push_back(new UI(gfx->context(), item.second));
+		}
+	}
+	else {
+		SDL_ShowSimpleMessageBox(0,"Configuration problem", "Couldn't find ui items...", NULL);
 	}
 
 	//init map
-	for (auto item : sessionConfig->get_child("Map"))
-	{
+	try {
+		for (auto item : sessionConfig->get_child("Map"))
+		{
 
-		char key = item.first.front();
-		scalar pos = scalar{ item.second.data() };
-		sim.set(pos, key);
+			char key = item.first.front();
+			scalar pos = scalar{ item.second.data() };
+			sim.set(pos, key);
+		}
+	}
+	catch (std::exception e)
+	{
 	}
 
 	auto keys = SDL_GetKeyboardState(NULL);
@@ -138,8 +149,8 @@ void Application::run()
 			if (e.type == SDL_FINGERMOTION)
 			{
 				SDL_TouchFingerEvent& f = e.tfinger;
-				v_camera.x = -f.dx*1024;
-				v_camera.y = -f.dy*768;
+				v_camera.x = f.dx*1024;
+				v_camera.y = f.dy*768;
 				//gfx->moveCamera(scalar(-f.dx*100, -f.dy*100));
 			}
 
@@ -229,7 +240,6 @@ void Application::run()
 		}
 
 		using boost::property_tree::ptree;
-		ptree newData{};
 
 		ptree wind{};
 		wind.put<int>("N", sim.wind("N"));
@@ -247,9 +257,9 @@ void Application::run()
 		int middleState = (mouse&SDL_BUTTON_MIDDLE) ? 1 : 0;
 		mouseData.put<int>("middle", middleState);
 
-		newData.put_child("Wind",wind);
-		newData.put_child("Mouse", mouseData);
-		newData.put<int>("Incidents", sim.information.get_optional<int>("Incidents").get_value_or(0));
+		sim.information.put_child("Wind",wind);
+		sim.information.put_child("Mouse", mouseData);
+		sim.information.put<int>("Incidents", sim.information.get_optional<int>("Incidents").get_value_or(0));
 		//element->update(&newData);
 		//element->draw();
 
@@ -257,7 +267,7 @@ void Application::run()
 		if (gfx->getZoom() <= 1) {
 			for (auto& item : activeUIs)
 			{
-				item->update(&newData);
+				item->update(&sim.information);
 				item->draw();
 			}
 			activeUIs = std::vector<UI*>(activeUIs.begin(), std::remove_if(begin(activeUIs), end(activeUIs), [](UI* i){ return !i->isAlive(); }));

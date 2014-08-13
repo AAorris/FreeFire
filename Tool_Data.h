@@ -4,16 +4,15 @@
 #include "Tool_Asset.h"
 #include <iosfwd>
 #include <set>
+#include <boost\property_tree\ptree.hpp>
 
 //looks like you're going to have to name your tile variables carefully. :)
 namespace tile
 {
 	using id_type = char;
 	using group_type = char;
-	using flag_type = bool;
-	using properties_type = std::unordered_map<std::string, flag_type>;
-	using flag = properties_type::value_type;
-	flag make_flag(const std::string& name);
+	using properties_type = _cfg;//std::unordered_map<std::string, flag_type>;
+
 	enum groups {
 		WEATHERGROUP	= 'w',
 		UNITGROUP		= 'u',
@@ -23,13 +22,6 @@ namespace tile
 	};
 	const std::vector<id_type> group_order = { GEOGRAPHYGROUP, OBJECTGROUP, FIREGROUP, UNITGROUP, WEATHERGROUP };
 
-	enum tile_flags {
-		FIRE_FLAG
-	};
-	void operator|=(properties_type& properties, const flag& f);
-	flag& operator&(const flag& left, const flag& right);
-	bool operator&&(const flag& left, const flag& right);
-	bool operator&&(const flag& left, flag& right);
 	using timer_type = int;
 
 	class Template
@@ -44,14 +36,15 @@ namespace tile
 
 		Template();
 		Template(const group_type& p_group, const id_type& p_id, const assets_type& p_assets, const properties_type& p_properties);
-		const flag_type operator()(const flag::first_type& property) const;
+		//const flag_type operator()(const flag::first_type& property) const;
 	};
 
 	class Data
 	{
 	public:
+
 		id_type id = 0;
-		properties_type status = properties_type{};//from flags
+		properties_type properties = properties_type{};
 		const tile::Template* root;
 		//bool burning;
 
@@ -60,11 +53,10 @@ namespace tile
 		virtual void operator=(const Template*);
 		virtual bool operator==(const Data& other);
 		virtual bool operator<(const Data& other);
-		virtual flag config(const flag::first_type& property);
-		virtual void apply(const flag& property);
-		virtual void setStatus(const flag::first_type& key, const flag::second_type& val);
+		//virtual void apply(const properties_type& property);
 		virtual void update(int ms);
-		flag getFlag(const properties_type::key_type& key);
+		bool hasProperty(const std::string& property);
+		void setProperty(const std::string& property, double speed);
 	};
 
 	class Unit : public tile::Data

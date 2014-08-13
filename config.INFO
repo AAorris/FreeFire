@@ -14,13 +14,13 @@ Templates {
 	o 3 {
 		asset "assets/tree.png" 
 		properties {
-			burnable 1
+			Burnable 1
 		}
 	}
 	o 4 {
 		asset "assets/pine_tree.png"
 		properties {
-			burnable 1
+			Burnable 1
 		}
 	}
 	f F {
