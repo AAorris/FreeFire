@@ -75,7 +75,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>Level1</WarningLevel>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
@@ -131,6 +131,7 @@
     <ClInclude Include="Application_FreeFire.h" />
     <ClInclude Include="ArtHelp.h" />
     <ClInclude Include="camera_data.h" />
+    <ClInclude Include="ExperimentalGFX.h" />
     <ClInclude Include="Facet.h" />
     <ClInclude Include="Facet_Cfg.h" />
     <ClInclude Include="Facet_Gfx.h" />
@@ -160,7 +161,10 @@
     <ClInclude Include="Tool_UIElement.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="assets\Session.INFO" />
     <None Include="ClassDiagram.cd" />
+    <None Include="config.INFO" />
+    <None Include="test.INFO" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

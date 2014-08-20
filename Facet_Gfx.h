@@ -38,8 +38,10 @@ public:
 	void draw(const char id, const scalar& pos);
 	void draw(master_type& data);
 	void draw(SDLButton* b);
+	void drawOverview(master_type& data);
 	scalar getCell(const scalar& mouse);
-	void highlightCell(const scalar& pos);
+	void highlightCell(const scalar& pos, SDL_Color& col = SDL_Color{ 255, 0, 0, 255 });
+	void fillCell(const scalar& pos, SDL_Color& col);
 	//void connect(Tool_Data* to);
 	//void draw(Tool_Data* data);
 	std::pair<SDL_Window*, SDL_Renderer*> context();

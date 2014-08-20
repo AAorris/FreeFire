@@ -4,6 +4,8 @@
 #include <set>
 
 namespace tile {
+	std::unordered_map<std::string, int> Fire::fireCounter;
+
 	Template::Template() :
 		group{ 0 },
 		id{ 0 },
@@ -18,14 +20,17 @@ namespace tile {
 		assets{ p_assets },
 		properties{ p_properties }
 	{
-
 	}
 
 	//---------------------------------------------------------------------
 	
 	Data::Data(const tile::Template* config, const scalar& posRef) : root{ config }
 	{
+		UID = reinterpret_cast<unsigned long>(this);
+		if (config == nullptr)
+			return;
 		id = root->id;
+		pos = posRef;
 		properties = properties_type{};
 	}
 	void Data::operator=(const Template* p_root)
@@ -51,14 +56,14 @@ namespace tile {
 	bool Data::hasProperty(const std::string& prop)
 	{
 #ifdef _DEBUG
-		std::string props = root->properties.getData();
+		//std::string props = root->properties;
 #endif
-		return root->properties.data.get_optional<std::string>(prop).is_initialized();
+		return root->properties.find(prop) != root->properties.not_found();
 		//return false;
 	}
 	void Data::setProperty(const std::string& prop, double value)
 	{
-		properties.data.put<double>(prop, value);
+		properties.put(prop, value);
 	}
 	void Unit::update(int ms)
 	{
@@ -98,9 +103,24 @@ namespace tile {
 		}
 	}
 
+	void Fire::initFire() {
+		Fire::fireCounter = std::unordered_map<std::string, int>();
+	}
 
-	Fire::Fire(const tile::Template* config, const scalar& posRef) : tile::Data(config, posRef)
+	Fire::Fire(const tile::Template* config, const scalar& posRef, const std::string& p_region) : tile::Data(config, posRef)
 	{
+		region = p_region;
+		Fire::fireCounter[region] = Fire::fireCounter[region]+1;
+		regionID = Fire::fireCounter[region];
+		fireTime = 0;
+		isRoot = true;
+	}
+
+
+	Fire::Fire(const Fire* const parent, const scalar& posRef) : tile::Data(parent->root, posRef)
+	{
+		region = parent->region;
+		regionID = parent->regionID;
 		fireTime = 0;
 	}
 
@@ -113,6 +133,6 @@ namespace tile {
 	{
 		Data::update(ms);
 		if (fireTime >= 0)
-			fireTime += ms;
+			fireTime += ms * fireSpeed;
 	}
 }

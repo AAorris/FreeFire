@@ -320,6 +320,7 @@ void Facet_Gfx::draw(master_type& data)
 		auto& group = data.find(id);
 		if (group != end(data))
 		{
+			auto& groupKey = group->first;
 			for (auto stack : group->second)
 			{
 				auto& pos = stack.first;
@@ -327,8 +328,113 @@ void Facet_Gfx::draw(master_type& data)
 				{
 					if (item == nullptr)
 						continue;
-					auto& id = item->id;
-					draw(id, pos);
+					if (groupKey == tile::FIREGROUP)
+					{
+						tile::Fire* f = reinterpret_cast<tile::Fire*>(item);
+						SDL_Color c = SDL_Color{ (f->regionID / 3 * 25) + ((f->regionID % 3) == 0 ? 155 : 0), +((f->regionID % 3) == 1 ? 155 : 0), +((f->regionID % 3) == 0 ? 155 : 0), 255 };
+						highlightCell(pos, c);
+					}
+
+					if (groupKey == tile::GEOGRAPHYGROUP) {
+						tile::Land* f = reinterpret_cast<tile::Land*>(item);
+						int h = f->elevation;
+						if (f->isWater())
+							fillCell(pos, SDL_Color{ 0, 0, 255, 255 });
+						continue;
+					}
+					else {
+						auto& id = item->id;
+						draw(id, pos);
+					}
+				}
+			}
+		}
+	}
+	SDL_SetRenderTarget(p->renderer, p->fog);
+	SDL_SetTextureBlendMode(p->fog, SDL_BLENDMODE_NONE);
+	SDL_SetRenderDrawBlendMode(p->renderer, SDL_BLENDMODE_NONE);
+	SDL_SetRenderDrawColor(p->renderer, 0, 0, 0, 180);
+	SDL_RenderClear(p->renderer);
+	SDL_SetRenderDrawColor(p->renderer, 0, 0, 0, 0);
+	//fog of war
+	for (auto& stack : data[tile::UNITGROUP])
+	{
+		auto& pos = stack.first;
+		for (auto item : stack.second)
+		{
+			//auto& res = (*p->find(item.second->id))->second;
+			//int size = res.getSize();
+			//SDL_Rect rect{ pos.x - size, pos.y - size, size * 3, size * 3 };
+			//p->drawAround(scalar(0,0));
+		}
+	}
+	SDL_SetRenderDrawBlendMode(p->renderer, SDL_BLENDMODE_BLEND);
+	SDL_SetRenderTarget(p->renderer, NULL);
+	SDL_SetTextureBlendMode(p->fog, SDL_BLENDMODE_BLEND);
+	//SDL_RenderCopy(p->renderer, p->fog, NULL, NULL);
+}
+
+void CLASS::drawOverview(master_type& data)
+{
+	for (const tile::id_type& id : tile::group_order)
+	{
+		auto& group = data.find(id);
+		if (group != end(data))
+		{
+			auto& groupKey = group->first;
+			for (auto& stack : group->second)
+			{
+				auto& pos = stack.first;
+				for (auto& item : stack.second)
+				{
+					if (item == nullptr)
+						continue;
+					if (groupKey == tile::FIREGROUP)
+					{
+						tile::Fire* f = reinterpret_cast<tile::Fire*>(item);
+						SDL_Color c = SDL_Color{ 
+							(f->regionID / 3 * 25) + ((f->regionID % 3) == 0 ? 155 : 0) + 128, 
+							((f->regionID % 3) == 1 ? 155 : 0), 
+							((f->regionID % 3) == 0 ? 155 : 0), 
+							128 };
+						auto& id = item->id;
+						auto asset = p->find(id);
+						if (f->isRoot) {
+							if (asset.is_initialized())
+							{
+								auto camPos = p->Transform(pos, Impl::SIMSPACE, IMPL::CAMERASPACE);
+								highlightCell(pos, c);
+								asset.get()->second.draw(camPos.x, camPos.y, 64, 64, true);
+							}
+						}
+						else {
+							highlightCell(pos, c);
+						}
+					}
+
+					if (groupKey == tile::GEOGRAPHYGROUP) {
+						tile::Land* f = reinterpret_cast<tile::Land*>(item);
+						int h = f->elevation;
+						h *= 4;
+						if (h < 0) h = 0;
+						if (h > 255) h = 255;
+						if (f->isWater())
+							fillCell(pos, SDL_Color{ 0, 0, 255, 64 });
+						else if(h < 200) {
+							fillCell(pos, SDL_Color{ h*1.8, 64 - h, h*1.2, 64 - h / 4 });
+						}
+						else {
+							fillCell(pos, SDL_Color{ 255, 255, 255, 64+(h-200)*5 });
+						}
+					}
+					if (groupKey == tile::OBJECTGROUP) {
+						fillCell(pos, SDL_Color{ 0, 255, 0, 5 });
+					}
+					if(groupKey == tile::UNITGROUP) {
+						auto& id = item->id;
+						draw(id, pos);
+					}
+
 				}
 			}
 		}
@@ -365,8 +471,8 @@ std::pair<SDL_Window*, SDL_Renderer*> CLASS::context()
 void CLASS::draw(const char id, const scalar& pos)
 {
 	auto& query = p->find(id);
-	assert(query.is_initialized());
-	p->draw(query, pos);
+	if(query.is_initialized())
+		p->draw(query, pos);	
 }
 
 void CLASS::clear()
@@ -394,8 +500,8 @@ double CLASS::getZoom()
 {
 	return p->zoom;
 }
- 
-void CLASS::highlightCell(const scalar& cell)
+
+void CLASS::highlightCell(const scalar& cell, SDL_Color& col)
 {
 	scalar view = cell;
 	view.x = round(view.x);
@@ -406,6 +512,23 @@ void CLASS::highlightCell(const scalar& cell)
 	int size = static_cast<int>(p->res*p->zoom);
 
 	auto r = SDL_Rect{ static_cast<int>(view.x - size / 2 + p->origin.x), static_cast<int>(view.y - size / 2 + p->origin.y), size, size };
-	SDL_SetRenderDrawColor(p->renderer, 255, 0, 0, 255);
+	SDL_SetRenderDrawColor(p->renderer, col.r, col.g, col.b, col.a);
 	SDL_RenderDrawRect(p->renderer, &r);
+	SDL_SetRenderDrawColor(p->renderer, col.r, col.g, col.b, 32);
+	SDL_RenderFillRect(p->renderer, &r);
+}
+
+void CLASS::fillCell(const scalar& cell, SDL_Color& col)
+{
+	scalar view = cell;
+	view.x = round(view.x);
+	view.y = round(view.y);
+
+	//view = view - view % p->res - p->offset*p->res;
+	view = p->Transform(view, p->SIMSPACE, p->SCREENSPACE);
+	int size = static_cast<int>(p->res*p->zoom);
+
+	auto r = SDL_Rect{ static_cast<int>(view.x - size / 2 + p->origin.x), static_cast<int>(view.y - size / 2 + p->origin.y), size, size };
+	SDL_SetRenderDrawColor(p->renderer, col.r, col.g, col.b, 32);
+	SDL_RenderFillRect(p->renderer, &r);
 }

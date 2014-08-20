@@ -4,7 +4,7 @@
 #include <boost\property_tree\ptree_fwd.hpp>
 
 
-/*The UI class is an interface class. Inside the cpp file are different ui implementations.
+/*The UI class extends an interface class. Inside the cpp file are different ui implementations.
 The constructor chooses which implementation to use based on the config.*/
 class UI : protected Tool
 {
@@ -30,8 +30,8 @@ public:
 		~Image() = default;
 	};
 	//----------
-private:
 	class Interface;
+private:
 	class BasicImplementation;
 	class CompassUI;
 	class MenuUI;
@@ -52,6 +52,6 @@ public:
 	//void setIsPoppedOut(bool popped);
 
 	void draw();
-	void update(info* data);
+	void update(const info* data);
 	UI::Image getTexture();
 };

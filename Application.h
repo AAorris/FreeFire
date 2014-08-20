@@ -1,10 +1,12 @@
 #pragma once
 #include "Tool_UIElement.h"
+#include "Facet_UI.h"
+
 class Application
 {
 public:
 
-	std::vector<UI*> activeUIs;
+	Facet_UI uis;
 
 	Application();
 	virtual ~Application();

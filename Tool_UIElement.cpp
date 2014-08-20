@@ -6,333 +6,300 @@
 #include <SDL2\SDL_ttf.h>
 #include <SDL2\SDL_image.h>
 #include "ArtHelp.h"
-#include <boost\property_tree\ptree.hpp>
+#include <boost\property_tree\ptree.hpp>                          
 #include <boost\property_tree\info_parser.hpp>
 #include <sstream>
 #include <array>
 
+#include "ExperimentalGFX.h"
 
-/*------------------------------------------------------------------------------------------------------------*
-												HELPER CODE
-*-------------------------------------------------------------------------------------------------------------*/
-namespace std {
-	void default_delete<SDL_Texture>::operator()(SDL_Texture* _ptr) const { SDL_DestroyTexture(_ptr); }
-}
+#define signs :
 
-namespace modern {
+namespace Zen {
 
-	struct Context {
-		SDL_Window* window;
-		SDL_Renderer* renderer;
-		SDL_Window* getWindow() const { return window; }
-		SDL_Renderer* getRenderer() const { return renderer; }
-		SDL_Renderer* operator*() const { return getRenderer(); }
-		Context() = delete;
-		Context(SDL_Window* w, SDL_Renderer* r) { window = w; renderer = r; }
-		Context(Context&& other) : window{ std::move(other.window) }, renderer{ std::move(other.renderer) } {}
-		Context(const scalar& size, Uint32 windowFlags = 0, Uint32 renderFlags = SDL_RENDERER_TARGETTEXTURE | SDL_RENDERER_ACCELERATED) {
-			window = SDL_CreateWindow("", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, static_cast<int>(size.x), static_cast<int>(size.y), windowFlags);
-			renderer = SDL_CreateRenderer(window, -1, renderFlags);
+
+	struct AreaContract {
+		virtual SDL_Rect* getArea() = 0;
+		SDL_Rect output;
+
+		bool contains(const int& px, const int& py) {
+			SDL_Rect* rect = getArea();
+			return rect->x < px && px < rect->x + rect->w
+				&& rect->y < py && py < rect->y + rect->h;
 		}
+		template<typename _Composite>
+		bool contains(const _Composite& pos) const { return contains(pos.x, pos.y); }
+
+		virtual bool consume(const int& px, const int& py) {
+			return contains(px, py);
+		}
+
+	}; using AreaSigned = AreaContract;
+
+	struct RenderContext {
+
 	};
 
-	struct Area {
-		SDL_Rect rect;
-		bool empty = false;
-		SDL_Rect* operator*() {
-			if (empty)
-				return NULL;
-			return &rect;
-		}
-		Area() {
-			rect = SDL_Rect{ 0, 0, 0, 0 };
-			empty = true;
-		}
-		Area(scalar size) {
-			scalar offset = size / -2;
-			rect = SDL_Rect{ static_cast<int>(offset.x), static_cast<int>(offset.y), static_cast<int>(size.x), static_cast<int>(size.y) };
-		}
-		Area(int x, int y, int w, int h) {
-			rect = SDL_Rect{ x, y, w, h };
-		}
-		bool Area::contains(int x, int y)
-		{
-			return (x > rect.x && x < rect.x + rect.w && y > rect.y && y < rect.y + rect.w);
-		}
+	struct RenderPackage {
+		//Take a number from the render context;
+		int number;
+		SDL_Color* fg = nullptr;
+		SDL_Color* bg = nullptr;
 	};
 
-	/*Wrapper around SDL_Texture, allowing for textures to be automatically cleaned up, and be bound to their window/renderer.*/
-	struct Texture {
-		std::unique_ptr<SDL_Texture> data;
-		const Context* context;
-		SDL_Texture* operator*() const { return data.get(); }
-		SDL_Texture* makeTexture(const Context* context, const std::string& path) {
-			auto temp = IMG_Load(path.c_str());
-			auto ptr = SDL_CreateTextureFromSurface(**context, temp);
-			SDL_FreeSurface(temp);
-			return ptr;
-		}
-		Texture(){}
-		Texture(const Context* ctx, const std::string& path) : data{ makeTexture(ctx, path) } {
-			context = ctx;
-		}
-		Texture(const Context* ctx, SDL_Texture* t) : data{ t } {
-			context = ctx;
-		}
-		Texture(Texture&& other) : data{ std::move(other.data) }, context{ std::move(other.context) } {}
-		Texture(std::unique_ptr<Context>& ctx, const std::string& path) :
-			data{ makeTexture(ctx.get(), path) }
-		{
-			context = ctx.get();
-		}
-		Area getRect(int x = 0, int y = 0) {
-			Area area = Area{ x, y, 16, 16 };
-			SDL_QueryTexture(data.get(), NULL, NULL, &area.rect.w, &area.rect.h);
-			return area;
-		}
-		int draw(Area& dst = Area(), Area& src = Area()) {
-			return SDL_RenderCopy(**context, data.get(), *src, *dst);
-		}
-	};
+	enum axis { X, Y, Z, W,		A, B, C, D,		E, F, G, H,		I, J, K, L };
 
-	struct Transform {
-		scalar position;
-		scalar scale;
-		double rotation;
-		Transform() {
-			position = scalar{};
-			scale = scalar{};
-			rotation = 0;
-		}
-		Transform(scalar _position, scalar _scale = scalar{ 0 }, double _rotation = 0) {
-			position = _position;
-			scale = _scale;
-			rotation = _rotation;
-		}
-	};
 
-	struct Config {
-		using ptree = boost::property_tree::ptree;
-		ptree data;
-		ptree* operator*(){ return &data; }
-		Config(const std::string& path) { boost::property_tree::read_info(path, data); }
-		Config(const ptree& input) { data = input; }
-	};
-
-	struct StaticImage {
-		/*texture points to a Texture. One Texture per image. Texture becomes invalid at the end of its scope(unique_ptr)
-		Can change the pointer, but not the texture.*/
-		const Texture*	texture;
-		Area		area;
-		Transform	transform;
-
-		const Context* context() {
-			return texture->context;
-		}
-		StaticImage() {
-			texture = NULL;
-			area = Area();
-			transform = Transform();
-		}
-		StaticImage(Texture* image, Area a, Transform&& t = Transform()) {
-			texture = image;
-			area = a;
-			transform = t;
-		}
-		Area applyTransform() {
-			Area result = area;
-			result.rect.x += static_cast<int>(transform.position.x);
-			result.rect.y += static_cast<int>(transform.position.y);
-			result.rect.w += static_cast<int>(result.rect.w * transform.scale.x);
-			result.rect.h += static_cast<int>(result.rect.h * transform.scale.y);
-			result.rect.x -= static_cast<int>((result.rect.w - area.rect.w) / 2);
-			result.rect.y -= static_cast<int>((result.rect.h - area.rect.h) / 2);
-			return result;
-		}
-		int draw() {
-			return SDL_RenderCopy(texture->context->getRenderer(), texture->data.get(), NULL, *applyTransform());
-		}
-	};
-
-	struct Text : public Texture {
-		std::string content;
-		SDL_Color color;
-		int x;
-		int y;
-		Text(Context* context, std::string text, int px, int py, TTF_Font* font, SDL_Color c = SDL_Color{ 255, 255, 255, 255 }) : Texture(context, makeText(context,text,font))
-		{
-			x = px;
-			y = py;
-			content = text;
-			color = c;
-		}
-		SDL_Texture* makeText(Context* context, std::string text, TTF_Font* font)
-		{
-			SDL_Surface* temp = TTF_RenderText_Blended(font, text.c_str(), color);
-			SDL_Texture* tex = SDL_CreateTextureFromSurface(context->getRenderer(), temp);
-			SDL_FreeSurface(temp);
-			return tex;
-		}
-		int draw() {
-			return Texture::draw(getRect(x,y));
-		}
-	};
-
-	struct Button {
-		Context* ctx;
-		TTF_Font* font;
-		SDL_Colour backgroundColour;
-		Area area;
-		bool hovering;
-		boost::optional<StaticImage> backgroundImage;
-		std::vector<Text*> texts;
-		Button(Context* context, Area a, SDL_Color bg = SDL_Color{ 0, 0, 0, 0 }, TTF_Font* f = NULL){ ctx = context; area = a; font = f; backgroundColour = bg; }
-		void addText(int x, int y, std::string content, SDL_Color color = SDL_Color{ 255, 255, 255, 255 }) {
-			if (font!=NULL)
-				texts.push_back(new Text(ctx, content, x, y, font, color));
-		}
-		void update(int mx, int my) {
-			hovering = area.contains(mx, my);
-		}
-		int draw() {
-			SDL_SetRenderDrawColor(ctx->renderer, backgroundColour.r, backgroundColour.g, backgroundColour.b, backgroundColour.a);
-			SDL_RenderFillRect(ctx->renderer, *area);
-			if (backgroundImage.is_initialized()) {
-				backgroundImage->draw();
-			}
-			if (hovering) {
-				SDL_SetRenderDrawColor(ctx->renderer, 60, 60, 60, 60);
-				SDL_RenderFillRect(ctx->renderer, *area);
-			}
-			for (auto& text : texts)
-			{
-				text->draw();
-			}
-			return 1;
-		}
-		~Button() {
-			for (auto ptr : texts)
-			{
-				delete ptr;
-			}
-		}
-	};
-
-	template <int Tilesize>
-	struct Tile {
-		StaticImage image;
-		bool empty = true;
-		Tile(int x = 0, int y = 0, Texture* t = NULL)
-		{
-			if (t != NULL)
-			{
-				empty = false;
-				image = StaticImage(t, Area(x*Tilesize, y*Tilesize, Tilesize, Tilesize), Transform());
-			}
-		}
-		void draw()
-		{
-			if (!empty)
-				image.draw();
-		}
-	};
-}
-namespace std {
-	/*The cleanup for @SDL_Texture is defined here for unique_ptrs. */
-//	void default_delete<SDL_Texture>::operator()(SDL_Texture* _ptr) const { SDL_DestroyTexture(_ptr); }
-	/*The cleanup for @Context is defined here for unique_ptrs. */
-	void default_delete<modern::Context>::operator()(modern::Context* _ptr) const {
-		SDL_DestroyRenderer(_ptr->renderer);
-		SDL_DestroyWindow(_ptr->window);
-	}
-}
-
-namespace get {
-	using boost::property_tree::ptree;
-	UI::art::frame		frame	(const UI::art::context& ctx)	{  return ctx.first;  }
-	UI::art::frame		window	(const UI::art::context& ctx)	{  return ctx.first;  } // alias
-	UI::art::artist		artist	(const UI::art::context& ctx)	{  return ctx.second;  }
-	UI::art::artist		renderer(const UI::art::context& ctx)	{  return ctx.second;  } // alias
-	scalar				size	(UI::art::area area)			{  return scalar(area.w, area.h);  }
-	scalar				position(UI::art::area area)			{  return scalar(area.x, area.y);  }
-}
-namespace make {
-	UI::art::canvas canvas(UI::art::artist artist, const scalar& size) {
-		return SDL_CreateTexture(artist, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, static_cast<int>(size.x), static_cast<int>(size.y));
-	}
-	UI::art::area area(const scalar& size, const scalar& position = scalar(0, 0)) {
-		return UI::art::area{ static_cast<int>(position.x), static_cast<int>(position.y), static_cast<int>(size.x), static_cast<int>(size.y) };
-	}
-	void target(UI::art::artist a, UI::art::canvas c) {
-		SDL_SetRenderTarget(a, c);
-	}
-}
-namespace render {
-	int image(UI::Image* image, UI::art::area* frame = NULL) {
-		return SDL_RenderCopy(get::artist(image->context), image->canvas, frame, &image->area);
-	}
-	int circle(const UI::art::context& context, scalar const&position, double const&radius) {
-		
-		std::vector<SDL_Point> points;
-
-		for (int y = static_cast<int>(position.y - radius); y <= static_cast<int>(position.y + radius); y++)
-			for (int x = static_cast<int>(position.x - radius); x <= static_cast<int>(position.x + radius); x++)
-				points.push_back(SDL_Point{ x, y });
-
-		return SDL_RenderDrawPoints(get::renderer(context), points.data(), points.size());
-	}
-}
-
-UI::Image::Image(UI::art::context p_context, int const& w, int const& h)
-: context{ p_context }, area(make::area(scalar(w, h))), canvas{ make::canvas(get::artist(p_context), get::size(area)) }
-{
-}
-
-UI::Image::Image(UI::art::context p_context, const UI::info& a)
-{
-	context.first = p_context.first;
-	context.second = p_context.second;
-	int x, y, w, h;
-	int screenw, screenh;
-	SDL_GetWindowSize(p_context.first, &screenw, &screenh);
-
-	auto offset = [](int& val, int& relto, UI::info& item) {
-		auto _data = item.data();
-		bool relative = _data[_data.size() - 1] == '%';
-		double value = relative ? std::stod(_data.substr(0, _data.size() - 1)) : std::stod(_data);
-		if (relative)
-			value = value* relative / 100.0;
-		val += value;
-	};
-
-	for (auto i : a )
+	template<typename T>
+	struct Area signs AreaContract
 	{
-		if (i.first == "x")
-			offset(x, screenw, i.second);
-		if (i.first == "y")
-			offset(y, screenh, i.second);
-		if (i.first == "w")
-			offset(w, screenw, i.second);
-		if (i.first == "h")
-			offset(h, screenh, i.second);
+		using type = T;
+		template <typename T> static type cast(T t) { return static_cast<type>(t); }
+		type x, y, w, h;
+
+		Area() : x{ 0 }, y{ 0 }, w{ 0 }, h{ 0 } {}
+
+		Area(double p_x, double p_y, double p_w, double p_h) :
+		x{ cast<type>(p_x) },
+		y{ cast<type>(p_y) },
+		w{ cast<type>(p_w) },
+		h{ cast<type>(p_h) } {}
+
+		template<typename base>
+		Area(const Area<base>& a) : Area(a.x, a.y, a.w, a.h) {}
+
+		type left() const { return x; }
+		type top() const { return y; }
+		type right() const { return x + w; }
+		type bottom() const { return y + h; }
+		type center(axis axis = X) const { return (axis==X) ? cast(x + w / 2) : (axis==Y) ? cast(y + h / 2) : 0; }
+
+		template<typename T>
+		Area<type> operator*(const T& val) const { 
+			return Area<type>{x*val, y*val, w*val, h*val};
+		}
+
+		template<typename T>
+		Area<type> operator+(const Area<T>& val) const {
+			return Area<type>(x+val.x, y+val.y, w+val.w, h+val.h);
+		}
+		SDL_Rect* getArea() {
+			//output is stored internally from areacontract
+			output = { x, y, w, h };
+			return &output;
+		}
+	}; using Areaf = Area<double>;
+
+	SDL_Rect transform(SDL_Rect* rect, scalar& offset, scalar& scale) {
+		SDL_Rect out;
+		out.x = rect->x += offset.x;
+		out.y = rect->y + offset.y;
+		out.w = rect->w * scale.x;
+		out.h = rect->h * scale.y;
+		return out;
 	}
 
-	area = UI::art::area{ x,y,w,h };
-	canvas = make::canvas(get::artist(p_context), get::size(area));
+	//template<typename _Parent>
+	struct RelativeArea signs AreaContract {
+		//using parent_type = _Parent;
+		using parent_ptr = SDL_Rect*;
+		parent_ptr relative;
+		scalar offset;
+		scalar scale = scalar(1,1);
+		RelativeArea() : relative{ nullptr } {}
+		RelativeArea(parent_ptr to) : relative{ to } {}
+		SDL_Rect* getArea() {
+			//output is stored internally when you sign an area contract
+			output = transform(relative, offset, scale);
+			return &output;
+		}
+	};
+
+	//template<typename T> void draw(T& t, SDL_Renderer* r) { t.draw(r); }
+	SDL_Renderer* current_renderer;
+	void setRenderer(SDL_Renderer* r) { current_renderer = r; }
+	void setColor(SDL_Color c) { SDL_SetRenderDrawColor(current_renderer, c.r, c.g, c.b, c.a); }
+	template<typename T>
+	void drawArea(Area<T>& area) { SDL_RenderFillRect(current_renderer, area.getArea()); }
+	void drawArea(SDL_Rect* rect) { SDL_RenderFillRect(current_renderer, rect); }
+
+	template<typename T>
+	struct interpolate {
+		T* from;
+		double speed = 0.05;
+		interpolate(T* it, const double& change) : from{ it }, speed{ change } {}
+		void operator()(const T& to) {
+			*from = *from*(1 - speed) + to*(speed);
+		}
+		void operator=(interpolate<T>& other) {
+			from = other.from;
+			speed = other.speed;
+		}
+	};
+
+	template<typename T>
+	struct basic_consumer {
+		T* const plate;
+		basic_consumer(T* ptr) : plate{ ptr } {}
+		bool operator()(const int& x, const int& y) const {
+			return plate->contains(x, y);
+		}
+	};
+
+	struct DynamicArea signs AreaContract {
+		//Typedefs
+		using container = std::unordered_map<std::string, Area<double>>;
+		//Members
+		container states;
+		Area<double> current;
+		std::string goal;
+		interpolate<Area<double>> lerp;
+		SDL_Color backgroundColor = SDL_Color{ 255, 255, 255, 255 };
+		//Constructors
+		DynamicArea() : lerp{ &current, 0.05 } { 
+			addStateArea("default", { 1<<4, 1<<4, 1<<6, 1<<6 });
+			goal = "default";
+			fixState("default");
+		}
+		DynamicArea(Area<double> default) : DynamicArea() { setState("default", default); fixState("default"); }
+		void operator=(DynamicArea& other) {
+			states = other.states;
+			current = other.current;
+			goal = other.goal;
+			lerp = other.lerp;
+			backgroundColor = other.backgroundColor;
+		}
+		//Functions
+		void				addStateArea(std::string key, Area<double> area) {
+			states.insert(std::make_pair(key, area));
+		}
+		void				addState(std::string key, std::vector<double> list) {
+			states.insert(std::make_pair(key, Area<double>(list[0], list[1], list[2], list[3])));
+		}
+		void				setState	(std::string key, Area<double> area) { states[key] = area; }
+		Area<double>&		iteratorValue(std::string key) { return getState(key)->second; }
+		void				fixState	(std::string key)	{ goal = (key);  current = iteratorValue(goal); }
+		void				update		()					{ 
+			current = current * (1 - 0.05) + getState(goal)->second * (0.05);
+		}
+		void				setTarget	(std::string key)	{ goal = key;			}
+		bool				contains	(int x, int y)		{ return current.contains(x,y);	}
+		virtual SDL_Rect*	getArea		()					{ return current.getArea();		}
+		container::iterator getState	(std::string key)	{ return states.find(key);		}
+		void				setGoal		(std::string key)	{ getState(key); }
+		bool				consume		(int x, int y)		{
+			if(!contains(x,y)) return false;
+			if (goal == "default") setTarget("small");
+			else setTarget("default");
+			return true;
+		}
+		void				draw		(SDL_Renderer* r)	{
+			Zen::setRenderer(r);
+			Zen::setColor(backgroundColor);
+			Zen::drawArea(current);
+		}
+	};
+
+	struct AccordianArea : public DynamicArea {
+		RelativeArea clickable;
+		AccordianArea() : DynamicArea(), clickable{ getArea() } {
+			clickable.relative = &current.output;
+		}
+		void operator=(AccordianArea& other) {
+			DynamicArea::operator=(other);
+			clickable = other.clickable;
+			clickable.relative = &current.output;
+		}
+		AccordianArea(Area<double> default, Area<double> small) : DynamicArea(default), clickable{ getArea() } {
+			addStateArea("small", small);
+			setClickableArea(0, 0, 0.1, 1);
+		}
+		void setClickableArea(int fromX, int fromY, double scaleX, double scaleY) {
+			clickable.offset.x = fromX;
+			clickable.offset.y = fromY;
+			clickable.scale.x = scaleX;
+			clickable.scale.y = scaleY;
+			clickable.relative = &current.output;
+		}
+		void draw(SDL_Renderer* r) {
+			DynamicArea::draw(r);
+			//draw clickable area
+			Zen::setColor(SDL_Color{ 0, 0, 0, 128 });
+			Zen::drawArea(clickable.getArea());
+		}
+		void update() { DynamicArea::update(); }
+		bool contains(int x, int y) { return DynamicArea::contains(x, y); }
+		bool consume(int x, int y) { 
+			if (!contains(x, y)) return false;
+			if (clickable.consume(x, y))
+			{
+				if (goal == "default") setTarget("small");
+				else setTarget("default");
+				return true;
+			}
+			return false;
+		}
+		virtual SDL_Rect* getArea() {
+			return DynamicArea::getArea();
+		}
+	};
+/*
+	struct ExpandableArea signs AreaContract {
+		interpolate<Area<double>> lerp;
+		subArea<Area<double>> getClickableArea;
+		Area<double> closed;
+		Area<double> expanded;
+		Area<double> current;
+		double howExpanded = 0;
+		double expandTarget = 0;
+		double transition_ms = 1000.0;
+		double expansion_rate = 0.05;
+		ExpandableArea() {}
+		ExpandableArea(Area<double> c, Area<double> o) :
+			closed{ c },
+			expanded{ o }
+		{
+			lerp = interpolate<Area<double>>();
+			getClickableArea = subArea<Area<double>>(-1, -1, 0.1, 1.0);
+		}
+		void update(int ms) {
+			howExpanded = howExpanded * (1 - expansion_rate) + expandTarget * expansion_rate;
+			current = lerp(closed, expanded, howExpanded);
+		}
+		SDL_Rect* getArea() {
+			return current.getArea();
+		}
+		bool contains(int x, int y) const {
+			return current.contains(x, y);
+		}
+	};*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }
 
-SDL_Point UI::Image::center()
-{
-	return SDL_Point{ area.w / 2, area.h / 2 };
-}
-
-UI::Image::Image() : context{ NULL, NULL }, canvas{ NULL }
-{
-	area = { 0, 0, 0, 0 };
-}
-
-/*------------------------------------------------------------------------------------------------------------*
-*-------------------------------------------------------------------------------------------------------------*/
 
 class UI::Interface
 {
@@ -342,7 +309,7 @@ public:
 	UI::Image* background = nullptr;
 	Interface() = default;
 	virtual UI::Image* renderBackground() = 0;
-	virtual void update(UI::info* info = NULL) = 0;
+	virtual void update(const UI::info* info = NULL) = 0;
 	virtual UI::info&& getRequestStructure() = 0;
 	virtual int draw() = 0;
 	virtual ~Interface() = default;
@@ -395,7 +362,7 @@ public:
 		SDL_SetRenderTarget(renderer, NULL);
 		return background;
 	}
-	virtual void update(UI::info* p_info = NULL)
+	virtual void update(const UI::info* p_info = NULL)
 	{
 	}
 	virtual int draw()
@@ -420,7 +387,7 @@ public:
 	}
 
 	virtual UI::info&& getRequestStructure() { return std::move(UI::info{}); }
-	virtual void update(UI::info* p_info = NULL)
+	virtual void update(const UI::info* p_info = NULL)
 	{
 		if (p_info != NULL)
 		{
@@ -444,6 +411,10 @@ public:
 	}
 };
 
+class clickable_ui : public UI::Interface {
+
+};
+
 class UI::ListUI : public UI::Interface {
 public:
 	using Texture = modern::Texture;
@@ -459,14 +430,15 @@ public:
 	using Container = std::vector<Item>;
 
 	//
-	double expansion = 0.0;
 	const int size;
 	Context* context;
 	Container icons;
 	TTF_Font* font;
 	Area area;
+	Zen::AccordianArea expander;
 	int incidents;
 	int acknowledgedIncidents = 0;
+	bool wasClicked = false;
 	ListUI(SDL_Window* w, SDL_Renderer* r, const int& iconSize, std::vector<string> items) : size{ iconSize } {
 		init();
 		*context = Context{ w, r };
@@ -478,13 +450,13 @@ public:
 	}
 
 	/*Requires cfg contains an integer called iconsize at its root.*/
-	ListUI(UI::art::context* ctx, UI::info* cfg) : size{ cfg->get<int>("iconSize") }
+	ListUI(UI::art::context* ctx, UI::info* cfg) : size{ cfg->get<int>("iconSize") }, expander()
 	{
 		init();
 		context = new Context(ctx->first, ctx->second);
 
 		auto a = cfg->get_child("Area");
-		int x, y, w, h;
+		double x, y, w, h;
 		x = a.get<int>("x");
 		y = a.get<int>("y");
 		w = a.get<int>("w");
@@ -501,6 +473,10 @@ public:
 		}
 
 		area = Area(x, y, w, h);
+		
+		expander = Zen::AccordianArea({ x, y, w, h }, { x + w*.9, y, w, h });
+		//expander.setState("default", { x, y, w, h });
+		//expander.addState("small", { x+w*.9, y, w*0.1, h });
 
 		int offset = 0;
 
@@ -536,7 +512,6 @@ public:
 	}
 
 	void init() {
-		expansion = 0;
 		font = TTF_OpenFont("normalFont.ttf", 32);
 		alive = true;
 		icons = Container();
@@ -546,10 +521,12 @@ public:
 		return nullptr;
 	}
 
-	virtual void update(UI::info* info = NULL) {
+	virtual void update(const UI::info* info = NULL) {
 		int i = 0;
 		if (!alive)
 			return;
+
+		expander.update();
 
 		auto mouseData = info->get_child_optional("Mouse");
 		int x, y, left, right, middle; //mouse info
@@ -563,20 +540,24 @@ public:
 			middle = mouseData->get_optional<int>("middle").get_value_or(0);
 		}
 		auto incidentUpdate = info->get_optional<int>("Incidents");
-		if (incidentUpdate.is_initialized())
-		{
+		if (incidentUpdate.is_initialized()){
 			incidents = incidentUpdate.get();
 		}
-		if (area.contains(x, y) && left > 0)
-		{
-			acknowledgedIncidents = incidents;
+		if (expander.contains(x, y) && left > 0)
+			wasClicked = true;
+		if (left == 0 && wasClicked){
+			bool consumed = expander.consume(x, y);
+			if (!consumed)
+				acknowledgedIncidents = incidents;
+			wasClicked = false;
 		}
 	}
 
 	virtual int draw() {
-		modern::Text&& text = modern::Text(context, std::to_string(incidents-acknowledgedIncidents)+" Incidents", area.rect.x + 10, area.rect.y + 10, font, SDL_Color{ 0, 0, 0, 255 });
-		SDL_SetRenderDrawColor(context->getRenderer(), 255, 255, 255, 255);
-		SDL_RenderFillRect(context->getRenderer(), &area.rect);
+		expander.draw(context->renderer);
+		modern::Text&& text = modern::Text(
+			context, std::to_string(incidents-acknowledgedIncidents)+" Incidents", 
+			expander.current.left() + expander.current.w*0.2, expander.current.top() + 10, font, SDL_Color{ 0, 0, 0, 255 });
 		text.draw();
 		return 1;
 	}
@@ -628,10 +609,22 @@ public:
 
 		int offset = 0;
 
-		std::vector<std::string> texts = { { "Cancel", "Move", "FireBreak", "FireFight" } };
+
+		std::vector<std::string> texts = { { "Cancel" } };
+		auto abilities = cfg->get_child_optional("Abilities");
+		if (abilities.is_initialized())
+		{
+			for (auto i = abilities.get().begin(); i != abilities.get().end(); i++) {
+				std::string one = i->first;
+				std::string two = i->second.data();
+				auto three = i->second.front().first;
+				auto four = i->second.front().second.data();
+				texts.push_back(i->second.front().first.data());
+			}
+		}
 
 		//for (auto& item : cfg->get_child("Items"))
-		for (int n = 0; n < 4; n++)
+		for (int n = 0; n < texts.size(); n++)
 		{
 			Texture* t = new Texture();//(context, item.second.get<std::string>("Icon"));
 			MenuItem* i = new MenuItem(context, Area(x + (offset*10) + (w*++offset), y, w, h), SDL_Color{ 255, 0, 0, 255 }, font);
@@ -656,7 +649,7 @@ public:
 		return nullptr;
 	}
 
-	virtual void update(UI::info* info = NULL) {
+	virtual void update(const UI::info* info = NULL) {
 		int i = 0;
 		if (!alive)
 			return;
@@ -734,7 +727,7 @@ void UI::draw()
 {
 	detail->draw();
 }
-void UI::update(UI::info* newData)
+void UI::update(const UI::info* newData)
 {
 	detail->update(newData);
 }
