@@ -5,9 +5,11 @@
 #include <bitset>
 #include <fstream>
 #include <algorithm>
+#include <random>
 #include <cassert>
 #include <boost/range/adaptor/reversed.hpp>
 #include <boost/property_tree/ptree.hpp>
+#include <boost\property_tree\info_parser.hpp>
 using PT = boost::property_tree::ptree;
 
 #include "Tool_Configurable.h"
@@ -21,6 +23,8 @@ using PT = boost::property_tree::ptree;
 #include "Facet_Sim.h"
 #include "Facet_Gfx.h"
 #include "scalar.h"
+
+#include "Geometry.h"
 
 #include "Tool_UIElement.h"
 #include <SDL2\SDL_ttf.h>
@@ -37,12 +41,14 @@ Application::~Application()
 void Application::run()
 {
 	using v2 = AA::Pos;
-	activeUIs = std::vector<UI*>();
+	uis = Facet_UI();
+	//activeUIs = std::vector<UI*>();
 
 	if (!SDL_WasInit(0))
 		SDL_Init(SDL_INIT_EVERYTHING);
 	if (!TTF_WasInit())
 		TTF_Init();
+	tile::Fire::initFire();
 
 	auto gfx = wrap( new _gfx(scalar(98,90),true) );
 	auto sim = Facet_Sim{};
@@ -52,7 +58,7 @@ void Application::run()
 	_cfg sessionConfig = _cfg{ "config.INFO" };
 	sim.connect(sessionConfig);
 	gfx->connect(sessionConfig);
-
+	uis.connect(sessionConfig);
 
 	_cfg newSession = _cfg{ "assets/Session.INFO" };
 	auto a = newSession.getData();
@@ -61,7 +67,7 @@ void Application::run()
 		for (auto item : items.get())
 		{
 			if (item.second.get<std::string>("Type") != "Menu")
-				activeUIs.push_back(new UI(gfx->context(), item.second));
+				uis.elements.push_back(new UI(gfx->context(), item.second));
 		}
 	}
 	else {
@@ -92,11 +98,25 @@ void Application::run()
 
 	const int size = sessionConfig->get_optional<int>("Settings.worldSize").get_value_or(100);
 	const double coverage = sessionConfig->get_optional<double>("Settings.treeCoverage").get_value_or(0.5);
+
+
+	PerlinNoise pn(time(NULL));
 	for (int i = 0; i < size*size; i++)
 	{
-		int x = i%size - size/2;
+		int x = i % size - size/2;
 		int y = i / size - size/2;
-		if (rand() % 100 < coverage * 100)
+		double noise = pn.noise(x/128.0 * 5, y/128.0 * 6, 0);
+		char elevation = ((noise-0.5) * 255);
+		elevation = elevation*0.6 + 0 * 0.1;
+		elevation = (elevation>127) ? 127 : elevation;
+
+		auto& land = sim.data[tile::GEOGRAPHYGROUP];
+		auto temp = tile::Data(nullptr, scalar(x, y));
+		auto newLand = new tile::Land(elevation, rand() % 255, std::move(temp));
+		facet::insert(scalar(x, y), newLand, &land);
+		//land.insert(std::make_pair(scalar(x,y),dynamic_cast<tile::Data*>(newLand)));
+		
+		if (newLand->isWater() == false && newLand->elevation < 32 && rand()%100 < newLand->treeChance()*100)
 			sim.insert(scalar(x, y), (rand() % 100 > 50) ? '3' : '4');
 	}
 
@@ -198,7 +218,6 @@ void Application::run()
 
 		auto& set = sim.data;
 
-		gfx->draw(sim.data);
 
 		if (leftMouseReleased)
 		{
@@ -207,7 +226,7 @@ void Application::run()
 			sim.select(cell);
 
 			bool hasMenu = false;
-			for (auto ui : activeUIs)
+			for (auto ui : uis.elements)
 			{
 				if (ui->type == "Menu")
 				{
@@ -220,12 +239,22 @@ void Application::run()
 				auto uicfg = boost::property_tree::ptree(newSession->get_child("Config.UI.SelectionMenu"));
 				auto unitcfg = sim.selectedUnit->root->properties;
 				auto area = boost::property_tree::ptree();
+				auto abilities = boost::property_tree::ptree();
+				for (auto i = unitcfg.begin(); i != unitcfg.end(); i++)
+					abilities.put(i->first.data(),i->first.data());
+
+				std::ostringstream oss;
+				boost::property_tree::write_info(oss, abilities);
+				auto str = oss.str();
+
 				area.put<int>("w", uicfg.get<int>("Background.Area.w"));
 				area.put<int>("h", uicfg.get<int>("Background.Area.h"));
 				area.put<int>("x", mousex + uicfg.get<int>("Background.Area.x"));
 				area.put<int>("y", mousey + uicfg.get<int>("Background.Area.y"));
 				uicfg.put_child("Background.Area", area);
-				activeUIs.push_back(new UI(gfx->context(), uicfg));
+				uicfg.put_child("Abilities", abilities);
+				uicfg.put("Type", "Menu");
+				uis.elements.push_back(new UI(gfx->context(), uicfg));
 			}
 		}
 
@@ -267,13 +296,17 @@ void Application::run()
 
 		//std::vector<std::vector<UI*>::iterator> toRemove;
 		if (gfx->getZoom() <= 1) {
-			for (auto& item : activeUIs)
-			{
-				item->update(&sim.information);
-				item->draw();
-			}
-			activeUIs = std::vector<UI*>(activeUIs.begin(), std::remove_if(begin(activeUIs), end(activeUIs), [](UI* i){ return !i->isAlive(); }));
+			gfx->drawOverview(sim.data);
 		}
+		else {
+			gfx->draw(sim.data);
+		}
+
+		for (auto& item : uis.elements)
+			item->draw();
+		uis.elements = std::vector<UI*>(uis.elements.begin(), std::remove_if(begin(uis.elements), end(uis.elements), [](UI* i){ return !i->isAlive(); }));
+
+		uis.update(&sim.information, 16);
 
 		gfx->present();
 

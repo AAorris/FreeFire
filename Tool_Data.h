@@ -11,7 +11,7 @@ namespace tile
 {
 	using id_type = char;
 	using group_type = char;
-	using properties_type = _cfg;//std::unordered_map<std::string, flag_type>;
+	using properties_type = boost::property_tree::basic_ptree<std::string,double>;//std::unordered_map<std::string, flag_type>;
 
 	enum groups {
 		WEATHERGROUP	= 'w',
@@ -42,8 +42,9 @@ namespace tile
 	class Data
 	{
 	public:
-
+		unsigned long UID = 0;
 		id_type id = 0;
+		scalar pos;
 		properties_type properties = properties_type{};
 		const tile::Template* root;
 		//bool burning;
@@ -89,10 +90,39 @@ namespace tile
 	class Fire : public tile::Data
 	{
 	public:
-		timer_type fireTime = 0;
-		Fire(const tile::Template* config, const scalar& posRef);
+		static std::unordered_map<std::string, int> fireCounter;
+		static void initFire();
+		double fireTime = 0;
+		double fireSpeed = 1.0;
+		std::string region;
+		int regionID;
+		bool isRoot = false;
+		Fire(const tile::Template* config, const scalar& posRef, const std::string& p_region="ON");
+		Fire(const Fire* const parent, const scalar& posRef);
 		virtual void operator=(const Template*);
 		virtual void update(int ms);
+	};
+
+	class Land : public tile::Data
+	{
+	public:
+		char elevation; //-127 - 127, referring to downhil or uphill.
+		unsigned char speed; //0-255, referring to how easily moved upon the tile is.
+		static const char waterLevel = -32;
+		Land(char height, unsigned char ease, Data&& default) : Data{ std::forward<Data>(default) } {
+			elevation = height;
+			speed = ease;
+		}
+		bool isWater() const { return elevation < waterLevel; }
+		double treeChance() const { 
+			//something clear should not have trees, something flat is better for trees than slopes.
+			if (isWater()) return 0;
+			if (elevation > 100) return 0;
+			double goodSlope = (127 - elevation) / 127.0;
+			goodSlope = goodSlope*0.8 + 1 * 0.2;
+			double goodSpeed = (255 - speed) / 255.0;
+			return goodSlope * goodSpeed;
+		} 
 	};
 }
 

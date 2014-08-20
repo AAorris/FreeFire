@@ -30,12 +30,13 @@ public:
 	void select(const scalar& cell);
 
 	Facet_Sim();
-	~Facet_Sim()=default;
+	~Facet_Sim();
 	facet::group_item_value& operator()(const tile::group_type& group, const scalar& pos);
 
 	void connect(_cfg& session);
 	//void set(const scalar& pos, const template_key& key);
 	bool insert(const scalar& pos, const template_key& key);
+	bool insert(const scalar& pos, tile::Fire* fire);
 	void update(int ms);
 	int& wind(std::string direction = "N");
 	std::vector<std::pair<scalar, tile::Data*>> around(const tile::group_type& type, const scalar& pos);

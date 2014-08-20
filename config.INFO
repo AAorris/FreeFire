@@ -28,8 +28,8 @@ Templates {
 	}
 }
 Settings {
-	worldSize 100
-	treeCoverage 0.5
+	worldSize 128
+	treeCoverage 1.0
 }
 Map {
 	2 "-10 -10"
@@ -42,4 +42,6 @@ Map {
 	3 "2 0"
 	3 "3 0"
 	4 "4 0"
+	F "10 0"
+	F "-10 -10"
 }

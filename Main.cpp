@@ -74,8 +74,10 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	auto app = wrap(new Application());
-	app->run();
+	if (SDL_QuitRequested() == 0) {
+		auto app = wrap(new Application());
+		app->run();
+	}
 
 
 #endif // !_DEBUG

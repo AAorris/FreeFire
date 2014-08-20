@@ -24,7 +24,9 @@ for (int x = static_cast<int>(begin.x); x <= static_cast<int>(end.x); x++)
 /*Just to close the outer for loop*/
 #define forEnd }
 
-CTOR() : data{} {}
+CTOR() : data{6} {
+
+}
 
 int windN = 0;
 int windS = 0;
@@ -74,7 +76,11 @@ void Facet_Sim::connect(_cfg& session)
 			auto propertyList = templateConfigItem.second.get_child_optional("properties");
 
 			if (propertyList.is_initialized()) {
-				properties.data = propertyList.get();
+				for (auto& property : propertyList.get())
+				{
+					if (property.second.data() != "")
+						properties.put<double>(property.first, std::stod(property.second.data()));
+				}
 			}
 
 
@@ -118,8 +124,16 @@ void Facet_Sim::update(int ms)
 					auto key = stack.first;
 					if (unit->position != key)
 					{
-						newUnits.push_back(unit);
-						oldUnits.push_back(std::pair<scalar,tile::Data*>(key,data));
+						tile::Data* landptr = *this->data[tile::GEOGRAPHYGROUP].lower_bound(unit->position)->second.begin();
+						auto land = static_cast<tile::Land*>(landptr);
+						if (land->isWater() == false) {
+							newUnits.push_back(unit);
+							oldUnits.push_back(std::pair<scalar, tile::Data*>(key, data));
+						}
+						else {
+							unit->position = key;
+							unit->destination.reset();
+						}
 					}
 				}
 
@@ -138,7 +152,7 @@ void Facet_Sim::update(int ms)
 							{
 								auto subLocation = subItem.first;
 								//auto it = data[tile::FIREGROUP].find(subLocation);
-								if (insert(subLocation, fire->root->id))
+								if (insert(subLocation, fire))
 									++incidents;
 							}
 						}
@@ -154,7 +168,7 @@ void Facet_Sim::update(int ms)
 							{
 								auto subLocation = subItem.first;
 								//auto it = data[tile::FIREGROUP].find(subLocation);
-								if (insert(subLocation, fire->root->id))
+								if (insert(subLocation, fire))
 									++incidents;
 								subItem.second->setProperty("burning", 1);
 							}
@@ -169,7 +183,7 @@ void Facet_Sim::update(int ms)
 							{
 								auto subLocation = subItem.first;
 								//auto it = data[tile::FIREGROUP].find(subLocation);
-								if (insert(subLocation, fire->root->id))
+								if (insert(subLocation, fire))
 									++incidents;
 								subItem.second->setProperty("burning", 1);
 							}
@@ -220,6 +234,22 @@ bool Facet_Sim::insert(const scalar& pos, const template_key& key)
 	return false;
 }
 
+bool Facet_Sim::insert(const scalar& pos, tile::Fire* fire)
+{
+	if (data[tile::FIREGROUP][pos].size() == 0){
+		//TODO : make this monstrocity of a line into something comprehensible
+		// cast<Land> ( iterator_value(data[Land][pos][top_layer]) )
+		double oldElevation = static_cast<tile::Land*>(*data[tile::GEOGRAPHYGROUP][fire->pos].begin())->elevation;
+		double newElevation = static_cast<tile::Land*>(*data[tile::GEOGRAPHYGROUP][pos].begin())->elevation;
+		// old/new 1/2
+		double slopeSpeed = (newElevation - oldElevation) / (oldElevation);
+		fire->fireSpeed += slopeSpeed; // gets bigger when new>old
+		data[tile::FIREGROUP][pos].insert(new tile::Fire(fire, pos));
+		return true;
+	}
+	return false;
+}
+
 void Facet_Sim::select(const scalar& cell)
 {
 	int x = 0;
@@ -245,6 +275,19 @@ int& Facet_Sim::wind(std::string direction)
 	if (direction == "W")
 		return windW;
 	throw std::runtime_error("correct wind not specified");
+}
+
+Facet_Sim::~Facet_Sim() {
+	for (auto& x : data)
+	{
+		for (auto& y : x.second)
+		{
+			for (auto& z : y.second)
+			{
+				delete z;
+			}
+		}
+	}
 }
 
 #undef CLASS
