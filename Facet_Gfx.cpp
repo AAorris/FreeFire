@@ -99,24 +99,7 @@ struct IMPL {
 			if (result != end(assets))
 				selected = result;
 		}		
-		/*signed int selectedDistance = -1;
-
-		if (std::distance(result.first, result.second) > 0) {
-			for (auto it = result.first; it != result.second; ++it)
-			{
-				int distance = abs(it->second.getSize() - preferredSize);
-				if (distance < selectedDistance)
-				{
-					selectedDistance = distance;
-					selected = it;
-				}
-				if (distance == 0)
-					break;
-			}
-		}*/
 		return selected;
-		//auto test = [n](container_value i) { return i.id == n; };
-		//return std::find_if(assets.begin(), assets.end(), test);
 	}
 
 	void draw(potential_result const& item, const scalar& location){
@@ -249,20 +232,30 @@ cameraTool_Data CLASS::getCamera()
 void CLASS::connect(_cfg& session)
 {
 	try {
-		for (auto item : session->get_child("Templates"))
+		for (auto item : session->get_child("Config.Entities"))
 		{
-			auto mainAsset = item.second.get<std::string>("asset");
+			auto id = item.second.get<char>("ID");
+			for (auto asset : item.second.get_child_optional("Assets").get_value_or(ptree()))
+			{
+				auto name = asset.first;
+				auto path = asset.second.get<std::string>("Path");
+				if (name == "Normal")
+					p->loadAsset(path, id);
+				else if (name == "small")
+					p->loadSmallAsset(path, id);
+			}
+			/*auto mainAsset = item.second.get<std::string>("Assets");
 			char key = item.second.data()[0];
 			p->loadAsset(mainAsset, key);
 
 			auto smallAsset = item.second.get_optional<std::string>("asset.small").get_value_or("");
 			if (smallAsset != "")
-				p->loadSmallAsset(smallAsset, key);
+				p->loadSmallAsset(smallAsset, key);*/
 		}
 	}
 	catch (std::exception e)
 	{
-		SDL_ShowSimpleMessageBox(0, "Configuration problem", "Couldn't connect graphics to configuration because of a missing file...", NULL);
+		SDL_ShowSimpleMessageBox(0, "GFX Init Error", e.what(), NULL);
 	}
 }
 
@@ -321,10 +314,10 @@ void Facet_Gfx::draw(master_type& data)
 		if (group != end(data))
 		{
 			auto& groupKey = group->first;
-			for (auto stack : group->second)
+			for (auto& stack : group->second)
 			{
 				auto& pos = stack.first;
-				for (auto item : stack.second)
+				for (auto& item : stack.second)
 				{
 					if (item == nullptr)
 						continue;
@@ -360,7 +353,7 @@ void Facet_Gfx::draw(master_type& data)
 	for (auto& stack : data[tile::UNITGROUP])
 	{
 		auto& pos = stack.first;
-		for (auto item : stack.second)
+		for (auto& item : stack.second)
 		{
 			//auto& res = (*p->find(item.second->id))->second;
 			//int size = res.getSize();
@@ -382,59 +375,68 @@ void CLASS::drawOverview(master_type& data)
 		if (group != end(data))
 		{
 			auto& groupKey = group->first;
-			for (auto& stack : group->second)
-			{
-				auto& pos = stack.first;
-				for (auto& item : stack.second)
+			//for (auto& stack : group->second)
+			auto screen = p->screenSize * p->res / p->zoom * 0.1;
+			auto offset = p->Transform(p->offset, p->SCREENSPACE, p->SIMSPACE)*0;
+			auto start = offset - screen;
+			auto end = offset + screen;
+			//auto scart = screen
+			auto& plane = group->second;
+			for (int y = start.y; y < end.y; y++) {
+				for (auto stack = plane.lower_bound(scalar(start.x, y)); stack != plane.lower_bound(scalar(end.x, y)); ++stack)
 				{
-					if (item == nullptr)
-						continue;
-					if (groupKey == tile::FIREGROUP)
+					auto& pos = stack->first;
+					for (auto& item : stack->second)
 					{
-						tile::Fire* f = reinterpret_cast<tile::Fire*>(item);
-						SDL_Color c = SDL_Color{ 
-							(f->regionID / 3 * 25) + ((f->regionID % 3) == 0 ? 155 : 0) + 128, 
-							((f->regionID % 3) == 1 ? 155 : 0), 
-							((f->regionID % 3) == 0 ? 155 : 0), 
-							128 };
-						auto& id = item->id;
-						auto asset = p->find(id);
-						if (f->isRoot) {
-							if (asset.is_initialized())
-							{
-								auto camPos = p->Transform(pos, Impl::SIMSPACE, IMPL::CAMERASPACE);
+						if (item == nullptr)
+							continue;
+						if (groupKey == tile::FIREGROUP)
+						{
+							tile::Fire* f = reinterpret_cast<tile::Fire*>(item);
+							SDL_Color c = SDL_Color{
+								(f->regionID / 3 * 25) + ((f->regionID % 3) == 0 ? 155 : 0) + 128,
+								((f->regionID % 3) == 1 ? 155 : 0),
+								((f->regionID % 3) == 0 ? 155 : 0),
+								128 };
+							auto& id = item->id;
+							auto asset = p->find(id);
+							if (f->isRoot) {
+								if (asset.is_initialized())
+								{
+									auto camPos = p->Transform(pos, Impl::SIMSPACE, IMPL::CAMERASPACE);
+									highlightCell(pos, c);
+									asset.get()->second.draw(camPos.x, camPos.y, 64, 64, true);
+								}
+							}
+							else {
 								highlightCell(pos, c);
-								asset.get()->second.draw(camPos.x, camPos.y, 64, 64, true);
 							}
 						}
-						else {
-							highlightCell(pos, c);
-						}
-					}
 
-					if (groupKey == tile::GEOGRAPHYGROUP) {
-						tile::Land* f = reinterpret_cast<tile::Land*>(item);
-						int h = f->elevation;
-						h *= 4;
-						if (h < 0) h = 0;
-						if (h > 255) h = 255;
-						if (f->isWater())
-							fillCell(pos, SDL_Color{ 0, 0, 255, 64 });
-						else if(h < 200) {
-							fillCell(pos, SDL_Color{ h*1.8, 64 - h, h*1.2, 64 - h / 4 });
+						if (groupKey == tile::GEOGRAPHYGROUP) {
+							tile::Land* f = reinterpret_cast<tile::Land*>(item);
+							int h = f->elevation;
+							h *= 4;
+							if (h < 0) h = 0;
+							if (h > 255) h = 255;
+							if (f->isWater())
+								fillCell(pos, SDL_Color{ 0, 0, 255, 64 });
+							else if (h < 200) {
+								fillCell(pos, SDL_Color{ h*1.8, 64 - h, h*1.2, 64 - h / 4 });
+							}
+							else {
+								fillCell(pos, SDL_Color{ 255, 255, 255, 64 + (h - 200) * 5 });
+							}
 						}
-						else {
-							fillCell(pos, SDL_Color{ 255, 255, 255, 64+(h-200)*5 });
+						if (groupKey == tile::OBJECTGROUP) {
+							fillCell(pos, SDL_Color{ 0, 255, 0, 5 });
 						}
-					}
-					if (groupKey == tile::OBJECTGROUP) {
-						fillCell(pos, SDL_Color{ 0, 255, 0, 5 });
-					}
-					if(groupKey == tile::UNITGROUP) {
-						auto& id = item->id;
-						draw(id, pos);
-					}
+						if (groupKey == tile::UNITGROUP) {
+							auto& id = item->id;
+							draw(id, pos);
+						}
 
+					}
 				}
 			}
 		}

@@ -55,14 +55,15 @@ void Application::run()
 
 	SDL_FlushEvents(0, UINT_MAX);
 
-	_cfg sessionConfig = _cfg{ "config.INFO" };
+	_cfg oldConfig = _cfg{ "config.INFO" };
+	_cfg sessionConfig = _cfg{ "assets/Session.INFO" };
 	sim.connect(sessionConfig);
 	gfx->connect(sessionConfig);
 	uis.connect(sessionConfig);
 
-	_cfg newSession = _cfg{ "assets/Session.INFO" };
-	auto a = newSession.getData();
-	auto items = newSession->get_child_optional("Config.UI");
+	_cfg oldSession = _cfg{ "assets/Session.INFO" };
+	auto a = sessionConfig.getData();
+	auto items = sessionConfig->get_child_optional("Config.UI");
 	if (items.is_initialized()){
 		for (auto item : items.get())
 		{
@@ -76,7 +77,7 @@ void Application::run()
 
 	//init map
 	try {
-		for (auto item : sessionConfig->get_child("Map"))
+		for (auto& item : sessionConfig->get_child("Map"))
 		{
 			char key = item.first.front();
 			scalar pos = scalar{ item.second.data() };
@@ -85,6 +86,7 @@ void Application::run()
 	}
 	catch (std::exception e)
 	{
+		SDL_ShowSimpleMessageBox(0, "Error", e.what(), NULL);
 	}
 
 	auto keys = SDL_GetKeyboardState(NULL);
@@ -171,8 +173,8 @@ void Application::run()
 			if (e.type == SDL_FINGERMOTION)
 			{
 				SDL_TouchFingerEvent& f = e.tfinger;
-				v_camera.x = f.dx*1024;
-				v_camera.y = f.dy*768;
+				v_camera.x = f.dx*1600;
+				v_camera.y = f.dy*1000;
 				//gfx->moveCamera(scalar(-f.dx*100, -f.dy*100));
 			}
 
@@ -236,7 +238,7 @@ void Application::run()
 			}
 			if (!hasMenu && sim.selectedUnit!=nullptr)
 			{
-				auto uicfg = boost::property_tree::ptree(newSession->get_child("Config.UI.SelectionMenu"));
+				auto uicfg = boost::property_tree::ptree(sessionConfig->get_child("Config.UI.SelectionMenu"));
 				auto unitcfg = sim.selectedUnit->root->properties;
 				auto area = boost::property_tree::ptree();
 				auto abilities = boost::property_tree::ptree();
