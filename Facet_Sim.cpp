@@ -64,16 +64,22 @@ void Facet_Sim::connect(_cfg& session)
 {
 	try {
 		information.add_child("Config", session.data);
-		for (auto templateConfigItem : session->get_child("Templates"))
+		for (auto templateConfigItem : session->get_child("Config.Entities"))
 		{
-			tile::group_type group = templateConfigItem.first[0]; //nab the first character
-			tile::id_type id = templateConfigItem.second.data()[0];
+			tile::group_type group = 'u'; //nab the first character
+			tile::id_type id = templateConfigItem.second.get_optional<tile::id_type>("ID").get_value_or(rand());
 			tile::Template::assets_type assets = tile::Template::assets_type{};
-			for (auto asset : templateConfigItem.second.get_child("asset"))
-				assets.insert(asset.second.data());
+			for (auto asset : templateConfigItem.second.get_child("Assets"))
+			{
+				std::string name = asset.first;
+				if (name == "Normal" || name == "Small") {
+					std::string path = asset.second.get<std::string>("Path");
+					assets.insert(path);
+				}
+			}
 
 			auto properties = tile::properties_type{};
-			auto propertyList = templateConfigItem.second.get_child_optional("properties");
+			auto propertyList = templateConfigItem.second.get_child_optional("Abilities");
 
 			if (propertyList.is_initialized()) {
 				for (auto& property : propertyList.get())
@@ -90,7 +96,7 @@ void Facet_Sim::connect(_cfg& session)
 	}
 	catch (std::exception e)
 	{
-		SDL_ShowSimpleMessageBox(0, "Configuration problem", "Couldn't connect simulation to configuration because of a missing file...", NULL);
+		SDL_ShowSimpleMessageBox(0, "Sim Error", e.what(), NULL);
 	}
 }
 

@@ -615,11 +615,7 @@ public:
 		if (abilities.is_initialized())
 		{
 			for (auto i = abilities.get().begin(); i != abilities.get().end(); i++) {
-				std::string one = i->first;
-				std::string two = i->second.data();
-				auto three = i->second.front().first;
-				auto four = i->second.front().second.data();
-				texts.push_back(i->second.front().first.data());
+				texts.push_back(i->first);
 			}
 		}
 
