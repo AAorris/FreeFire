@@ -108,7 +108,7 @@ namespace tile
 	public:
 		char elevation; //-127 - 127, referring to downhil or uphill.
 		unsigned char speed; //0-255, referring to how easily moved upon the tile is.
-		static const char waterLevel = -32;
+		static const char waterLevel = -88;
 		Land(char height, unsigned char ease, Data&& default) : Data{ std::forward<Data>(default) } {
 			elevation = height;
 			speed = ease;

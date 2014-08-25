@@ -29,6 +29,11 @@ inline double dist(const scalar& s1, const scalar& s2 = scalar(0, 0))
 	return sqrt(mag2(s2 - s1));
 }
 
+template<typename T>
+T diff(const T& left, const T& right) {
+	return left - right;
+}
+
 class PerlinNoise {
 	// The permutation vector
 	std::vector<int> p;
