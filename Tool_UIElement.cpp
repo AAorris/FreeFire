@@ -10,7 +10,7 @@
 #include <boost\property_tree\info_parser.hpp>
 #include <sstream>
 #include <array>
-
+#include <set>
 #include "ExperimentalGFX.h"
 
 #define signs :
@@ -315,6 +315,75 @@ public:
 	virtual ~Interface() = default;
 };
 
+class UIContract
+{
+public:
+	bool alive;
+	/*This is read by the UI*/
+	static UI::info* simData;
+	/*This is read by the application when the UI is finished.*/
+	UI::info  exitData;
+	virtual void init(const UI::art::context, UI::info* config) = 0;
+	virtual int draw() = 0;
+	virtual void update(const UI::info* updateData = nullptr) = 0;
+	virtual ~UIContract() = default;
+};
+
+//struct IconSelector signs public UIContract
+//{
+//	struct Icon {
+//		int index;
+//		std::string name;
+//		Zen::DynamicArea area;
+//		bool operator<(const Icon& right) { return index < right.index; }
+//	};
+//	std::vector<Icon> icons;
+//	IconSelector();
+//	virtual void init(const UI::art::context, UI::info* config);
+//	virtual int draw();
+//	virtual void update(const UI::info* updateData = nullptr);
+//	virtual ~IconSelector();
+//protected:
+//	double expandTime;
+//	void addIcon(const std::string& name);
+//	void select(const std::string& name);
+//};
+//
+//IconSelector::IconSelector() {}
+//void IconSelector::init(const UI::art::context, UI::info* config) {
+//	auto width = config->get<double>("IconWidth");
+//	auto height = config->get<double>("IconHeight");
+//	auto& icons = config->get_child("Icons");
+//	int nIcons = icons.size();
+//	for (auto it : icons) {
+//		auto index = icons.size();
+//		auto indexChange = index - nIcons / 2.0;
+//		auto& name = it.first;
+//		auto& data = it.second;
+//		Icon icon{};
+//		icon.index = index;
+//		icon.name = name;
+//		icon.area.setState("Start", { nIcons/2*width, 0, width/4, height/4 });
+//		icon.area.setState("Finish", { indexChange*width, 0, width, height });
+//		icon.area.fixState("Start");
+//		icon.area.setGoal("Finish");
+//	}
+//}
+//void IconSelector::update(const UI::info* updateData)
+//{
+//	auto mouseX = simData->get<int>("Mouse.x");
+//	auto mouseY = simData->get<int>("Mouse.y");
+//	auto mouseButton = simData->get<int>("Mouse");
+//	for (auto& item : icons) {
+//		auto& area = item.area;
+//		area.update();
+//		if (area.contains(mouseX, mouseY)) //hovering
+//		{
+//
+//		}
+//	}
+//}
+
 class UI::BasicImplementation : public UI::Interface
 {
 public:
@@ -325,6 +394,12 @@ public:
 	BasicImplementation(const UI::art::context ctx, UI::info* config)
 	{
 		info = UI::info(*config);
+		auto a = info.get_child("Area");
+
+		area.x = a.get<int>("x");
+		area.y = a.get<int>("y");
+		area.w = a.get<int>("w");
+		area.h = a.get<int>("h");
 		context = ctx;
 	}
 	virtual ~BasicImplementation()
@@ -337,7 +412,7 @@ public:
 		if (background == nullptr)
 			background = new Image(context, info.get_child("Area"));
 
-		area = background->area;
+		//area = background->area;
 		auto color = info.get_optional<std::string>("Background.Color");
 		auto imagePath = info.get_optional<std::string>("Background.Image");
 		auto renderer = get::artist(context);
@@ -374,11 +449,15 @@ public:
 class UI::CompassUI : public UI::BasicImplementation {
 public:
 	SDL_Texture* needle;
+	SDL_Texture* body;
 	double rotation;
 	CompassUI(const UI::art::context ctx, UI::info* config) : BasicImplementation(ctx, config)
 	{
 		auto surf = IMG_Load(config->get<std::string>("Background.Needle").c_str());
+		auto bsurf = IMG_Load(config->get<std::string>("Background.Image").c_str());
 		needle = SDL_CreateTextureFromSurface(get::renderer(ctx), surf);
+		body = SDL_CreateTextureFromSurface(get::renderer(ctx), bsurf);
+		SDL_FreeSurface(bsurf);
 		SDL_FreeSurface(surf);
 	}
 	~CompassUI()
@@ -406,6 +485,7 @@ public:
 	{
 		BasicImplementation::draw();
 		auto center = SDL_Point{ static_cast<int>(area.w*.5), static_cast<int>(area.h*.5) };
+		SDL_RenderCopy(get::renderer(context), body, NULL, &area);
 		SDL_RenderCopyEx(context.second, needle, NULL, &area, rotation * (180/3.14), &center, SDL_FLIP_NONE);
 		return 1;
 	}
@@ -414,6 +494,9 @@ public:
 class clickable_ui : public UI::Interface {
 
 };
+
+
+
 
 class UI::ListUI : public UI::Interface {
 public:
@@ -602,8 +685,8 @@ public:
 
 		auto a = cfg->get_child("Background.Area");
 		int x, y, w, h;
-		x = a.get<int>("x");
-		y = a.get<int>("y");
+		x = 10;//a.get<int>("x");
+		y = 10;//a.get<int>("y");
 		w = a.get<int>("w");
 		h = a.get<int>("h");
 

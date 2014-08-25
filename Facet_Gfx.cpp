@@ -2,10 +2,30 @@
 #include "Facet_Gfx.h"
 #include <algorithm>
 #include <unordered_map>
+#include <SDL2\SDL_image.h>
 #include "camera_data.h"
+#include "Geometry.h"
 
 #define CLASS Facet_Gfx
 #include "PIMPL.h"
+
+SDL_Texture* IMG_LoadTexture(SDL_Renderer* renderer, const std::string& path) { return IMG_LoadTexture(renderer, path.c_str()); }
+SDL_Surface* IMG_Load(const std::string& file) { return IMG_Load(file.c_str()); }
+
+SDL_Texture* LoadTexture(SDL_Renderer* renderer, const std::string& path) { return IMG_LoadTexture(renderer, path.c_str()); }
+SDL_Surface* LoadSurface(const std::string& file) { return IMG_Load(file.c_str()); }
+SDL_Texture* CreateTextureTarget(SDL_Renderer* r, const int& w, const int& h) { return SDL_CreateTexture(r, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, w, h); }
+void SetColor(SDL_Renderer* r, SDL_Color c) {
+	SDL_SetRenderDrawColor(r, c.r, c.g, c.b, c.a);
+}
+SDL_Color BlendColor(SDL_Color& c1, SDL_Color& c2, double amt=0.5)
+{
+	auto avg = [&amt](int a, int b) { return a * (1 - amt) + b*(amt); };
+	return SDL_Color{ avg(c1.r, c2.r), avg(c1.g, c2.g), avg(c1.b, c2.b), avg(c1.a, c2.a) };
+}
+void SetTarget(SDL_Renderer* r, SDL_Texture* t = NULL) { SDL_SetRenderTarget(r, t); }
+void ResetTarget(SDL_Renderer* r) { SetTarget(r); }
+int Render(SDL_Renderer* r, SDL_Texture* t, SDL_Rect* src, SDL_Rect* dst) { return SDL_RenderCopy(r, t, src, dst); }
 
 struct IMPL {
 	using container_type = std::unordered_map<char, _asset>;
@@ -22,6 +42,139 @@ struct IMPL {
 	SDL_Renderer* renderer;
 	SDL_Texture* fog;
 
+	SDL_Texture* geographyTexture;
+	SDL_Texture* tileMask;
+	SDL_Texture* alphaBuffer;
+	SDL_Texture* colorBuffer;
+	scalar terrainOffset;
+	std::vector<SDL_Texture*> heightTextures;
+	PerlinNoise perlin;
+
+	void initGeographyMasking(std::string maskPath, std::vector<std::string> texturePaths)
+	{
+		tileMask = IMG_LoadTexture(renderer, maskPath);
+		//assert(SDL_SetTextureColorMod(tileMask, 0, 0, 0) != -1);
+		alphaBuffer = CreateTextureTarget(renderer, 32 * 3, 32 * 3);
+		for (auto& path : texturePaths)
+			heightTextures.push_back(IMG_LoadTexture(renderer, path));
+		//SDL_SetTextureBlendMode(tileBuffer, SDL_BLENDMODE_MOD);
+	}
+
+	int toint(double d) { return static_cast<int>(d); }
+
+	/*px and py are position hints for where in the world this terrain tile is rendering. Height is how high the tile is.
+	The goal is to render to the terrain tile buffer(alphaBuffer), and use that afterwards to render the tile. This should
+	handle blending between height and such.*/
+	void bufferTerrain(double px, double py, double height) {
+		SetTarget(renderer, alphaBuffer);
+		std::vector<SDL_Color> colors{
+			{ 0, 0, 0, 255 },
+			{ 32, 24, 1, 255 },
+			{ 32, 64, 5, 255 },
+			{ 128, 128, 128, 255 },
+			{ 255, 255, 255, 255 }
+		};
+		double ind = height * 4;
+		int find = toint(floor(height*4));
+		int cind = toint(ceil(height * 4));
+		double blend = cind - (ind);
+		const double flatSize = 0.45;
+		
+		if (blend > flatSize || blend < (1 - flatSize)) {
+			if (cind <= 4)
+			{
+				SDL_Color blended = BlendColor(colors[find], colors[cind], 1 - blend);
+				SetColor(renderer, blended);
+				SDL_RenderFillRect(renderer, NULL);
+			}
+			else if (cind > 4) {
+				SDL_Color blended = BlendColor(colors[find], colors[find], 1 - blend);
+				SetColor(renderer, blended);
+				SDL_RenderFillRect(renderer, NULL);
+			}
+		}
+		else {
+			SDL_Color blended = BlendColor(colors[find], colors[find], 1 - blend);
+			SetColor(renderer, blended);
+			SDL_RenderFillRect(renderer, NULL);
+		}
+		///SetColor(renderer, { 255, 0, 0, 255 });
+		//SDL_RenderDrawRect(renderer, NULL);
+		SetTarget(renderer);
+	}
+
+	SDL_Texture* createTerrainTexture(facet::master_group_type* terrain)
+	{
+		int period = 1000 / 12;
+		int goal = SDL_GetTicks() + period;
+
+		auto first = terrain->begin()->first;
+		auto last = terrain->rbegin()->first;// terrain->end()--->first; // that's a -- and a ->
+		int w = last.x - first.x;
+		int h = last.y - first.y;
+		SDL_Texture* texture = CreateTextureTarget(renderer, w*res, h*res);
+		SetTarget(renderer, texture);
+		SDL_Rect clip = SDL_Rect{ 0, 0, w*res, w*res };
+		SDL_RenderSetClipRect(renderer, &clip);
+		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+		SDL_RenderFillRect(renderer, NULL);
+		SetTarget(renderer);
+		for (auto& stack : *terrain)
+		{
+			auto pos = stack.first;
+			scalar realPos = (stack.first - first)*res;
+			SDL_Rect r = SDL_Rect{
+				realPos.x - res,
+				realPos.y - res,
+				res * 3,
+				res * 3
+			};
+			for (auto& item : stack.second)
+			{
+				tile::Land* land = reinterpret_cast<tile::Land*>(item);
+				double h = (land->elevation)/255.0+0.5;
+				int hCol = static_cast<int>(h * 255);
+				hCol = (hCol<0)?0:(hCol>255)?255:hCol;
+				bufferTerrain(realPos.x, realPos.y, h);
+				SDL_SetTextureBlendMode(alphaBuffer, SDL_BLENDMODE_BLEND);
+				SDL_SetTextureAlphaMod(alphaBuffer, 255);
+				SetTarget(renderer, texture);
+				SDL_RenderSetClipRect(renderer, &clip);
+				Render(renderer, alphaBuffer, NULL, &r);
+				if (h < 0.15){
+					SDL_SetTextureColorMod(texture, 255, 255, 255);
+					SDL_SetRenderDrawColor(renderer, 0, 64, 255, 128/8);
+					SDL_RenderFillRect(renderer, &r);
+				}
+				SetTarget(renderer);
+			}
+			if (SDL_GetTicks() > goal)
+			{
+				goal += period;
+				Render(renderer, texture, NULL, NULL);
+				SDL_RenderPresent(renderer);
+			}
+		}
+		SDL_Rect screen = SDL_Rect{ 0, 0, screenSize.x, screenSize.y };
+		SDL_RenderSetClipRect(renderer, &screen);
+		Render(renderer, texture, NULL, NULL);
+		SDL_RenderPresent(renderer);
+		//SDL_Delay(15000);
+		terrainOffset = scalar(-w / 2, -h / 2);
+		return texture;
+	}
+
+	void destroyGeographyMasking()
+	{
+		for (auto item : heightTextures)
+			SDL_DestroyTexture(item);
+		SDL_DestroyTexture(tileMask);
+		SDL_DestroyTexture(alphaBuffer);
+		SDL_DestroyTexture(geographyTexture);
+	}
+
+	//void 
+
 	container_type assets;
 	container_type smallAssets;
 
@@ -30,8 +183,7 @@ struct IMPL {
 	scalar origin;
 	scalar screenSize;
 	double zoom;
-
-	Impl(scalar size = scalar(1024,768), bool relativeToScreen = false)
+	Impl(scalar size = scalar(1024, 768), bool relativeToScreen = false)
 	{
 		SDL_DisplayMode screen;
 		SDL_GetCurrentDisplayMode(0, &screen);
@@ -54,13 +206,21 @@ struct IMPL {
 		origin.x = screen.w / 2;
 		origin.y = screen.h / 2;
 
-		window = SDL_CreateWindow("Free Fire 1.7.24", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, screen.w, screen.h,0);
+		window = SDL_CreateWindow("Free Fire 1.7.24", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, screen.w, screen.h, 0);
 		renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
-		fog = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, screen.w, screen.h);
-		assets = container_type{};
-		smallAssets = container_type{};
-		auto r = SDL_Rect{ 0, 0, screen.w, screen.h };
-		SDL_RenderSetClipRect(renderer, &r);
+		perlin = PerlinNoise(rand());
+		initGeographyMasking("assets/heightmaps/alphaMask.tga", {
+			"assets/heightmaps/0.jpg",
+			"assets/heightmaps/1.jpg",
+			"assets/heightmaps/2.jpg",
+			"assets/heightmaps/3.jpg",
+			"assets/heightmaps/4.jpg",
+			"assets/heightmaps/5.jpg", });
+			fog = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_TARGET, screen.w, screen.h);
+			assets = container_type{};
+			smallAssets = container_type{};
+			auto r = SDL_Rect{ 0, 0, screen.w, screen.h };
+			SDL_RenderSetClipRect(renderer, &r);
 	}
 
 	Impl(Impl&& i)
@@ -98,7 +258,7 @@ struct IMPL {
 			auto& result = assets.find(id);
 			if (result != end(assets))
 				selected = result;
-		}		
+		}
 		return selected;
 	}
 
@@ -138,6 +298,11 @@ struct IMPL {
 			p1 /= res*zoom;
 			return p1;
 		}
+		if (cur == SCREENSPACE && dest == CAMERASPACE)
+		{
+			p1 += offset*zoom;
+			return p1;
+		}
 		if (cur == SIMSPACE && dest == CAMERASPACE)
 		{
 			p1 = (Transform(p1, SIMSPACE, SCREENSPACE) + origin);
@@ -162,7 +327,7 @@ struct IMPL {
 
 		SDL_Rect rect = { static_cast<int>(view.x), static_cast<int>(view.y), size, size };
 
-		SDL_RenderFillRect(renderer,&rect);
+		SDL_RenderFillRect(renderer, &rect);
 		//(*item)->second.draw(view.x, view.y, size, size);
 
 	}
@@ -170,10 +335,10 @@ struct IMPL {
 	void loadAsset(const std::string& s, char id){
 		assets.insert(
 			std::make_pair(
-				id,
-				_asset(s, renderer)
+			id,
+			_asset(s, renderer)
 			)
-		);
+			);
 		//assets.insert(_asset(s, renderer, id));
 	}
 
@@ -183,15 +348,20 @@ struct IMPL {
 			id,
 			_asset(s, renderer)
 			)
-		);
+			);
 	}
 };
 
 /*--------------------------------------------------------*/
 
-CTOR(scalar size = scalar(1024,768), bool relativeToScreen ) : p{ new Impl(size, relativeToScreen) } {
+CTOR(scalar size = scalar(1024, 768), bool relativeToScreen) : p{ new Impl(size, relativeToScreen) } {
 	std::string error = SDL_GetError();
 	SDL_SetRenderDrawBlendMode(p->renderer, SDL_BLENDMODE_BLEND);
+	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+	p->loadSmallAsset("assets/incident.png", 0xF0);
+	p->loadSmallAsset("assets/fire-small.png", 0xF1);
+	p->loadAsset("assets/incident.png", 0xF0);
+	p->loadAsset("assets/fire-small.png", 0xF1);
 }
 DTOR() { SDL_DestroyRenderer(p->renderer); SDL_DestroyWindow(p->window); }
 
@@ -201,18 +371,18 @@ const _asset* CLASS::getAsset(const tile::id_type& key)
 	/*
 	auto& res = p->find(key);
 	if (res.is_initialized()){
-		auto& asset = res.get()->second;
-		return &asset;
+	auto& asset = res.get()->second;
+	return &asset;
 	}
 	else
-		return NULL;
+	return NULL;
 	*/
 }
 
 void CLASS::zoomCamera(const double& dz)
 {
 	p->zoom += dz;
-	p->zoom = SDL_max(p->zoom,4.0/p->res); //zoom should not be lower than 1.0/res
+	p->zoom = SDL_max(p->zoom, 4.0 / p->res); //zoom should not be lower than 1.0/res
 }
 void CLASS::moveCamera(const scalar& dp)
 {
@@ -231,6 +401,7 @@ cameraTool_Data CLASS::getCamera()
 
 void CLASS::connect(_cfg& session)
 {
+	p->loadAsset("assets/fire.png", 'F');
 	try {
 		for (auto item : session->get_child("Config.Entities"))
 		{
@@ -250,7 +421,22 @@ void CLASS::connect(_cfg& session)
 
 			auto smallAsset = item.second.get_optional<std::string>("asset.small").get_value_or("");
 			if (smallAsset != "")
-				p->loadSmallAsset(smallAsset, key);*/
+			p->loadSmallAsset(smallAsset, key);*/
+		}
+		for (auto item : session->get_child("Config.Tiles"))
+		{
+			auto id = item.second.get_optional<char>("ID");
+			if (id.is_initialized()) {
+				for (auto asset : item.second.get_child_optional("Assets").get_value_or(ptree()))
+				{
+					auto name = asset.first;
+					auto path = asset.second.get<std::string>("Path");
+					if (name == "Normal")
+						p->loadAsset(path, *id);
+					else if (name == "small")
+						p->loadSmallAsset(path, *id);
+				}
+			}
 		}
 	}
 	catch (std::exception e)
@@ -369,6 +555,27 @@ void Facet_Gfx::draw(master_type& data)
 
 void CLASS::drawOverview(master_type& data)
 {
+	//scalar cameraPos = p->Transform(scalar(p->terrainOffset), p->SCREENSPACE, p->CAMERASPACE);
+	//scalar terrainSize = p->terrainOffset;
+	//scalar cameraPos = p->Transform(terrainSize, p->SIMSPACE, p->SCREENSPACE);
+	//scalar size = p->terrainOffset*-2 * p->res;
+
+	scalar firstCell = data[tile::GEOGRAPHYGROUP].begin()->first;
+	scalar lastCell = data[tile::GEOGRAPHYGROUP].rbegin()->first;
+
+
+	scalar realFirst = p->Transform(firstCell, p->SIMSPACE, p->CAMERASPACE);
+	scalar realLast = p->Transform(lastCell, p->SIMSPACE, p->CAMERASPACE);
+
+	int x = realFirst.x - p->res/2*p->zoom;
+	int y = realFirst.y - p->res/2*p->zoom;
+	int w = realLast.x-realFirst.x;
+	int h = realLast.y-realFirst.y;
+
+
+	SDL_Rect terrainRect = { x, y, w, h };//{ cameraPos.x, cameraPos.y, size.x, size.y };
+	SDL_RenderCopy(p->renderer, p->geographyTexture, NULL, &terrainRect);
+
 	for (const tile::id_type& id : tile::group_order)
 	{
 		auto& group = data.find(id);
@@ -377,7 +584,7 @@ void CLASS::drawOverview(master_type& data)
 			auto& groupKey = group->first;
 			//for (auto& stack : group->second)
 			auto screen = p->screenSize * p->res / p->zoom * 0.1;
-			auto offset = p->Transform(p->offset, p->SCREENSPACE, p->SIMSPACE)*0;
+			auto offset = p->Transform(p->offset, p->SCREENSPACE, p->SIMSPACE) * 0;
 			auto start = offset - screen;
 			auto end = offset + screen;
 			//auto scart = screen
@@ -392,6 +599,7 @@ void CLASS::drawOverview(master_type& data)
 							continue;
 						if (groupKey == tile::FIREGROUP)
 						{
+
 							tile::Fire* f = reinterpret_cast<tile::Fire*>(item);
 							SDL_Color c = SDL_Color{
 								(f->regionID / 3 * 25) + ((f->regionID % 3) == 0 ? 155 : 0) + 128,
@@ -409,32 +617,55 @@ void CLASS::drawOverview(master_type& data)
 								}
 							}
 							else {
-								highlightCell(pos, c);
+								p->draw(p->find(0xF1), pos);
+								//highlightCell(pos, c);
 							}
 						}
 
-						if (groupKey == tile::GEOGRAPHYGROUP) {
+						if (groupKey == tile::OBJECTGROUP) {
+							//if (false)//item->hasProperty("Burnable") == false)
+							//{
+							//	fillCell(pos, SDL_Color{ 255, 128, 0, 64 });
+							//}
+							auto& id = item->id;
+							draw(id, pos);
+						}
+
+						/*if (groupKey == tile::GEOGRAPHYGROUP) {
 							tile::Land* f = reinterpret_cast<tile::Land*>(item);
 							int h = f->elevation;
 							h *= 4;
 							if (h < 0) h = 0;
 							if (h > 255) h = 255;
+
 							if (f->isWater())
-								fillCell(pos, SDL_Color{ 0, 0, 255, 64 });
-							else if (h < 200) {
-								fillCell(pos, SDL_Color{ h*1.8, 64 - h, h*1.2, 64 - h / 4 });
-							}
+							fillCell(pos, SDL_Color{ 0, 0, 255, 64 });
 							else {
-								fillCell(pos, SDL_Color{ 255, 255, 255, 64 + (h - 200) * 5 });
+							p->bufferTerrain(pos.x, pos.y, h / 255.0);
+							scalar realPos = p->Transform(pos, p->SIMSPACE, p->CAMERASPACE);
+							if (static_cast<int>(floor(pos.x)) % 4 == 0 && static_cast<int>(floor(pos.y)) % 4 == 0) {
+							int w = p->res*p->zoom * 4;
+							SDL_Rect r = SDL_Rect{ realPos.x - w, realPos.y - w, w * 3, w * 3 };
+							SDL_SetTextureBlendMode(p->tileBuffer, SDL_BLENDMODE_BLEND);
+							SDL_SetTextureAlphaMod(p->tileBuffer, 128);
+							Render(p->renderer, p->tileBuffer, NULL, &r);
 							}
-						}
-						if (groupKey == tile::OBJECTGROUP) {
-							fillCell(pos, SDL_Color{ 0, 255, 0, 5 });
-						}
-						if (groupKey == tile::UNITGROUP) {
-							auto& id = item->id;
-							draw(id, pos);
-						}
+							}*/
+						//}
+						//	else if (h < 200) {
+						//		fillCell(pos, SDL_Color{ h*1.8, 64 - h, h*1.2, 64 - h / 4 });
+						//	}
+						//	else {
+						//		fillCell(pos, SDL_Color{ 255, 255, 255, 64 + (h - 200) * 5 });
+						//	}
+						//}
+						//if (groupKey == tile::OBJECTGROUP) {
+						//	fillCell(pos, SDL_Color{ 0, 255, 0, 5 });
+						//}
+						//if (groupKey == tile::UNITGROUP) {
+						//	auto& id = item->id;
+						//	draw(id, pos);
+						//}
 
 					}
 				}
@@ -473,8 +704,8 @@ std::pair<SDL_Window*, SDL_Renderer*> CLASS::context()
 void CLASS::draw(const char id, const scalar& pos)
 {
 	auto& query = p->find(id);
-	if(query.is_initialized())
-		p->draw(query, pos);	
+	if (query.is_initialized())
+		p->draw(query, pos);
 }
 
 void CLASS::clear()
@@ -485,7 +716,7 @@ void CLASS::clear()
 
 void CLASS::loadAsset(const std::string& path, int key)
 {
-	p->loadAsset(path,key);
+	p->loadAsset(path, key);
 }
 
 void CLASS::present()
@@ -533,4 +764,10 @@ void CLASS::fillCell(const scalar& cell, SDL_Color& col)
 	auto r = SDL_Rect{ static_cast<int>(view.x - size / 2 + p->origin.x), static_cast<int>(view.y - size / 2 + p->origin.y), size, size };
 	SDL_SetRenderDrawColor(p->renderer, col.r, col.g, col.b, 32);
 	SDL_RenderFillRect(p->renderer, &r);
+}
+
+/*Dont' call twice unless you free p->geographytexture*/
+void CLASS::drawTerrain(facet::master_group_type* terrain) {
+	//SDL_DestroyTexture(p->geographyTexture);
+	p->geographyTexture = p->createTerrainTexture(terrain);
 }

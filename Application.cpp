@@ -50,7 +50,7 @@ void Application::run()
 		TTF_Init();
 	tile::Fire::initFire();
 
-	auto gfx = wrap( new _gfx(scalar(98,90),true) );
+	auto gfx = wrap(new _gfx(scalar(98, 90), true));
 	auto sim = Facet_Sim{};
 
 	SDL_FlushEvents(0, UINT_MAX);
@@ -72,7 +72,7 @@ void Application::run()
 		}
 	}
 	else {
-		SDL_ShowSimpleMessageBox(0,"Configuration problem", "Couldn't find ui items...", NULL);
+		SDL_ShowSimpleMessageBox(0, "Configuration problem", "Couldn't find ui items...", NULL);
 	}
 
 	//init map
@@ -92,24 +92,38 @@ void Application::run()
 	auto keys = SDL_GetKeyboardState(NULL);
 	int mousex = 0;
 	int mousey = 0;
-	SDL_GetMouseState(&mousex,&mousey);
+	SDL_GetMouseState(&mousex, &mousey);
 	scalar v_camera{ 0, 0 };
 	double v_zoom = 0;
 	bool playing = true;
 	SDL_Event e;
 
-	const int size = sessionConfig->get_optional<int>("Settings.worldSize").get_value_or(100);
-	const double coverage = sessionConfig->get_optional<double>("Settings.treeCoverage").get_value_or(0.5);
+	const int size = sessionConfig->get_optional<int>("Settings.worldSize").get_value_or(200);
+	const double coverage = sessionConfig->get_optional<double>("Settings.treeCoverage").get_value_or(0.8);
 
 
-	PerlinNoise pn(time(NULL));
+	std::default_random_engine engine{};
+	engine.seed(time(nullptr));
+	std::lognormal_distribution<double> distribution{ 0.3, 0.4 };
+	auto rnormal = std::bind(distribution, engine);
+
+	PerlinNoise pn{0};
+
+	/*Terrain generation
+	Noise should range from -1 : 1
+	elevation should scale it from -127 : 127
+	*/
 	for (int i = 0; i < size*size; i++)
 	{
 		int x = i % size - size/2;
 		int y = i / size - size/2;
-		double noise = pn.noise(x/128.0 * 5, y/128.0 * 6, 0);
-		char elevation = ((noise-0.5) * 255);
-		elevation = elevation*0.6 + 0 * 0.1;
+		double noise = sin(x/10.0);
+		//double noise = pn.noise(x/64.0, y/64.0, 0)*2-1;
+		//double noise = rnormal();
+		//noise = noise*0.5;
+		char elevation = ((noise) * 127);
+		//elevation*0.2 + -0.3 * 0.8;
+		elevation = (elevation<-127) ? -127 : elevation;
 		elevation = (elevation>127) ? 127 : elevation;
 
 		auto& land = sim.data[tile::GEOGRAPHYGROUP];
@@ -121,6 +135,8 @@ void Application::run()
 		if (newLand->isWater() == false && newLand->elevation < 32 && rand()%100 < newLand->treeChance()*100)
 			sim.insert(scalar(x, y), (rand() % 100 > 50) ? '3' : '4');
 	}
+
+	gfx->drawTerrain(&sim.data[tile::GEOGRAPHYGROUP]);
 
 	while (SDL_QuitRequested() == false && playing)
 	{
@@ -304,8 +320,9 @@ void Application::run()
 			gfx->draw(sim.data);
 		}
 
-		for (auto& item : uis.elements)
+		for (auto& item : uis.elements) {
 			item->draw();
+		}
 		uis.elements = std::vector<UI*>(uis.elements.begin(), std::remove_if(begin(uis.elements), end(uis.elements), [](UI* i){ return !i->isAlive(); }));
 
 		uis.update(&sim.information, 16);

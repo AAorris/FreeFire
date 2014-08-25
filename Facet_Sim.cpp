@@ -62,8 +62,35 @@ std::vector<std::pair<scalar, tile::Data*>> CLASS::around(const tile::group_type
 
 void Facet_Sim::connect(_cfg& session)
 {
+	templates.insert(std::make_pair('F', tile::Template{ 'f', 'F', tile::Template::assets_type{ "assets/fire.png" }, tile::properties_type{} }));
 	try {
 		information.add_child("Config", session.data);
+		for (auto item : session->get_child("Config.Tiles"))
+		{
+			auto id = item.second.get_optional<char>("ID");
+			if (id.is_initialized()) {
+				tile::group_type group = tile::OBJECTGROUP;
+				tile::id_type templateID = *id;
+				tile::Template::assets_type assets = tile::Template::assets_type{};
+				for (auto asset : item.second.get_child("Assets"))
+				{
+					std::string name = asset.first;
+					if (name == "Normal" || name == "Small") {
+						std::string path = asset.second.get<std::string>("Path");
+						assets.insert(path);
+					}
+				}
+				auto properties = tile::properties_type{};
+				auto burnability = item.second.get_optional<double>("Burnability");
+				if (burnability.is_initialized()) {
+					std::string bstr = std::to_string(*burnability);
+					//SDL_ShowSimpleMessageBox(0, "Burnability", bstr.c_str(), NULL);
+					properties.put<double>("Burnable", *burnability);
+				}
+				auto t = tile::Template( group, templateID, assets, properties);
+				templates.insert(std::make_pair(t.id, t));
+			}
+		}
 		for (auto templateConfigItem : session->get_child("Config.Entities"))
 		{
 			tile::group_type group = 'u'; //nab the first character
@@ -128,13 +155,18 @@ void Facet_Sim::update(int ms)
 				{
 					auto unit = static_cast<tile::Unit*>(data);
 					auto key = stack.first;
-					if (unit->position != key)
+					auto curPos = unit->position;
+					if (curPos != key)
 					{
-						tile::Data* landptr = *this->data[tile::GEOGRAPHYGROUP].lower_bound(unit->position)->second.begin();
+						tile::Data* landptr = *this->data[tile::GEOGRAPHYGROUP].lower_bound(curPos)->second.begin();
 						auto land = static_cast<tile::Land*>(landptr);
 						if (land->isWater() == false) {
 							newUnits.push_back(unit);
 							oldUnits.push_back(std::pair<scalar, tile::Data*>(key, data));
+							auto& stack = this->data[tile::OBJECTGROUP][curPos];
+							if (stack.empty() == false)
+								(*stack.begin())->setProperty("Burnable", 0);
+							
 						}
 						else {
 							unit->position = key;
@@ -154,7 +186,8 @@ void Facet_Sim::update(int ms)
 						{
 							if (subItem.first.x > location.x)
 								continue;
-							if (subItem.second->hasProperty("Burnable"))
+							auto burnability = subItem.second->properties.get_optional<double>("Burnable").get_value_or(0);
+							if (burnability != 0)
 							{
 								auto subLocation = subItem.first;
 								//auto it = data[tile::FIREGROUP].find(subLocation);
@@ -170,7 +203,8 @@ void Facet_Sim::update(int ms)
 						{
 							if (subItem.first.x < location.x)
 								continue;
-							if (subItem.second->hasProperty("Burnable"))
+							auto burnability = subItem.second->properties.get_optional<double>("Burnable").get_value_or(0);
+							if (burnability != 0)
 							{
 								auto subLocation = subItem.first;
 								//auto it = data[tile::FIREGROUP].find(subLocation);
@@ -185,7 +219,8 @@ void Facet_Sim::update(int ms)
 					{
 						for (auto subItem : around(tile::OBJECTGROUP, location))
 						{
-							if (subItem.second->hasProperty("Burnable"))
+							auto burnability = subItem.second->properties.get_optional<double>("Burnable").get_value_or(0);
+							if (burnability != 0)
 							{
 								auto subLocation = subItem.first;
 								//auto it = data[tile::FIREGROUP].find(subLocation);
@@ -225,6 +260,7 @@ bool Facet_Sim::insert(const scalar& pos, const template_key& key)
 		return true;
 	}
 	if (root.group == tile::OBJECTGROUP) {
+		assert(root.properties.get<double>("Burnable") != 0);
 		stack.insert(new tile::Data(&root, pos));
 		return true;
 	}
@@ -248,7 +284,7 @@ bool Facet_Sim::insert(const scalar& pos, tile::Fire* fire)
 		double oldElevation = static_cast<tile::Land*>(*data[tile::GEOGRAPHYGROUP][fire->pos].begin())->elevation;
 		double newElevation = static_cast<tile::Land*>(*data[tile::GEOGRAPHYGROUP][pos].begin())->elevation;
 		// old/new 1/2
-		double slopeSpeed = (newElevation - oldElevation) / (oldElevation);
+		double slopeSpeed = (newElevation - oldElevation);
 		fire->fireSpeed += slopeSpeed; // gets bigger when new>old
 		data[tile::FIREGROUP][pos].insert(new tile::Fire(fire, pos));
 		return true;

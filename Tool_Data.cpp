@@ -31,7 +31,7 @@ namespace tile {
 			return;
 		id = root->id;
 		pos = posRef;
-		properties = properties_type{};
+		properties = root->properties;
 	}
 	void Data::operator=(const Template* p_root)
 	{
@@ -133,6 +133,6 @@ namespace tile {
 	{
 		Data::update(ms);
 		if (fireTime >= 0)
-			fireTime += ms * fireSpeed;
+			fireTime += ms/3 * fireSpeed;
 	}
 }
