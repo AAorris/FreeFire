@@ -46,6 +46,7 @@ namespace tile
 		id_type id = 0;
 		scalar pos;
 		properties_type properties = properties_type{};
+		bool burnable = true;
 		const tile::Template* root;
 		//bool burning;
 
@@ -108,7 +109,7 @@ namespace tile
 	public:
 		char elevation; //-127 - 127, referring to downhil or uphill.
 		unsigned char speed; //0-255, referring to how easily moved upon the tile is.
-		static const char waterLevel = -88;
+		static const char waterLevel = -64;
 		Land(char height, unsigned char ease, Data&& default) : Data{ std::forward<Data>(default) } {
 			elevation = height;
 			speed = ease;

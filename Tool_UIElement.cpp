@@ -8,241 +8,12 @@
 #include "ArtHelp.h"
 #include <boost\property_tree\ptree.hpp>                          
 #include <boost\property_tree\info_parser.hpp>
+#include "Facet_Sim.h"
 #include <sstream>
 #include <array>
 #include <set>
 #include "ExperimentalGFX.h"
-
-#define signs :
-
-namespace Zen {
-
-
-	struct AreaContract {
-		virtual SDL_Rect* getArea() = 0;
-		SDL_Rect output;
-
-		bool contains(const int& px, const int& py) {
-			SDL_Rect* rect = getArea();
-			return rect->x < px && px < rect->x + rect->w
-				&& rect->y < py && py < rect->y + rect->h;
-		}
-		template<typename _Composite>
-		bool contains(const _Composite& pos) const { return contains(pos.x, pos.y); }
-
-		virtual bool consume(const int& px, const int& py) {
-			return contains(px, py);
-		}
-
-	}; using AreaSigned = AreaContract;
-
-	struct RenderContext {
-
-	};
-
-	struct RenderPackage {
-		//Take a number from the render context;
-		int number;
-		SDL_Color* fg = nullptr;
-		SDL_Color* bg = nullptr;
-	};
-
-	enum axis { X, Y, Z, W,		A, B, C, D,		E, F, G, H,		I, J, K, L };
-
-
-	template<typename T>
-	struct Area signs AreaContract
-	{
-		using type = T;
-		template <typename T> static type cast(T t) { return static_cast<type>(t); }
-		type x, y, w, h;
-
-		Area() : x{ 0 }, y{ 0 }, w{ 0 }, h{ 0 } {}
-
-		Area(double p_x, double p_y, double p_w, double p_h) :
-		x{ cast<type>(p_x) },
-		y{ cast<type>(p_y) },
-		w{ cast<type>(p_w) },
-		h{ cast<type>(p_h) } {}
-
-		template<typename base>
-		Area(const Area<base>& a) : Area(a.x, a.y, a.w, a.h) {}
-
-		type left() const { return x; }
-		type top() const { return y; }
-		type right() const { return x + w; }
-		type bottom() const { return y + h; }
-		type center(axis axis = X) const { return (axis==X) ? cast(x + w / 2) : (axis==Y) ? cast(y + h / 2) : 0; }
-
-		template<typename T>
-		Area<type> operator*(const T& val) const { 
-			return Area<type>{x*val, y*val, w*val, h*val};
-		}
-
-		template<typename T>
-		Area<type> operator+(const Area<T>& val) const {
-			return Area<type>(x+val.x, y+val.y, w+val.w, h+val.h);
-		}
-		SDL_Rect* getArea() {
-			//output is stored internally from areacontract
-			output = { x, y, w, h };
-			return &output;
-		}
-	}; using Areaf = Area<double>;
-
-	SDL_Rect transform(SDL_Rect* rect, scalar& offset, scalar& scale) {
-		SDL_Rect out;
-		out.x = rect->x += offset.x;
-		out.y = rect->y + offset.y;
-		out.w = rect->w * scale.x;
-		out.h = rect->h * scale.y;
-		return out;
-	}
-
-	//template<typename _Parent>
-	struct RelativeArea signs AreaContract {
-		//using parent_type = _Parent;
-		using parent_ptr = SDL_Rect*;
-		parent_ptr relative;
-		scalar offset;
-		scalar scale = scalar(1,1);
-		RelativeArea() : relative{ nullptr } {}
-		RelativeArea(parent_ptr to) : relative{ to } {}
-		SDL_Rect* getArea() {
-			//output is stored internally when you sign an area contract
-			output = transform(relative, offset, scale);
-			return &output;
-		}
-	};
-
-	//template<typename T> void draw(T& t, SDL_Renderer* r) { t.draw(r); }
-	SDL_Renderer* current_renderer;
-	void setRenderer(SDL_Renderer* r) { current_renderer = r; }
-	void setColor(SDL_Color c) { SDL_SetRenderDrawColor(current_renderer, c.r, c.g, c.b, c.a); }
-	template<typename T>
-	void drawArea(Area<T>& area) { SDL_RenderFillRect(current_renderer, area.getArea()); }
-	void drawArea(SDL_Rect* rect) { SDL_RenderFillRect(current_renderer, rect); }
-
-	template<typename T>
-	struct interpolate {
-		T* from;
-		double speed = 0.05;
-		interpolate(T* it, const double& change) : from{ it }, speed{ change } {}
-		void operator()(const T& to) {
-			*from = *from*(1 - speed) + to*(speed);
-		}
-		void operator=(interpolate<T>& other) {
-			from = other.from;
-			speed = other.speed;
-		}
-	};
-
-	template<typename T>
-	struct basic_consumer {
-		T* const plate;
-		basic_consumer(T* ptr) : plate{ ptr } {}
-		bool operator()(const int& x, const int& y) const {
-			return plate->contains(x, y);
-		}
-	};
-
-	struct DynamicArea signs AreaContract {
-		//Typedefs
-		using container = std::unordered_map<std::string, Area<double>>;
-		//Members
-		container states;
-		Area<double> current;
-		std::string goal;
-		interpolate<Area<double>> lerp;
-		SDL_Color backgroundColor = SDL_Color{ 255, 255, 255, 255 };
-		//Constructors
-		DynamicArea() : lerp{ &current, 0.05 } { 
-			addStateArea("default", { 1<<4, 1<<4, 1<<6, 1<<6 });
-			goal = "default";
-			fixState("default");
-		}
-		DynamicArea(Area<double> default) : DynamicArea() { setState("default", default); fixState("default"); }
-		void operator=(DynamicArea& other) {
-			states = other.states;
-			current = other.current;
-			goal = other.goal;
-			lerp = other.lerp;
-			backgroundColor = other.backgroundColor;
-		}
-		//Functions
-		void				addStateArea(std::string key, Area<double> area) {
-			states.insert(std::make_pair(key, area));
-		}
-		void				addState(std::string key, std::vector<double> list) {
-			states.insert(std::make_pair(key, Area<double>(list[0], list[1], list[2], list[3])));
-		}
-		void				setState	(std::string key, Area<double> area) { states[key] = area; }
-		Area<double>&		iteratorValue(std::string key) { return getState(key)->second; }
-		void				fixState	(std::string key)	{ goal = (key);  current = iteratorValue(goal); }
-		void				update		()					{ 
-			current = current * (1 - 0.05) + getState(goal)->second * (0.05);
-		}
-		void				setTarget	(std::string key)	{ goal = key;			}
-		bool				contains	(int x, int y)		{ return current.contains(x,y);	}
-		virtual SDL_Rect*	getArea		()					{ return current.getArea();		}
-		container::iterator getState	(std::string key)	{ return states.find(key);		}
-		void				setGoal		(std::string key)	{ getState(key); }
-		bool				consume		(int x, int y)		{
-			if(!contains(x,y)) return false;
-			if (goal == "default") setTarget("small");
-			else setTarget("default");
-			return true;
-		}
-		void				draw		(SDL_Renderer* r)	{
-			Zen::setRenderer(r);
-			Zen::setColor(backgroundColor);
-			Zen::drawArea(current);
-		}
-	};
-
-	struct AccordianArea : public DynamicArea {
-		RelativeArea clickable;
-		AccordianArea() : DynamicArea(), clickable{ getArea() } {
-			clickable.relative = &current.output;
-		}
-		void operator=(AccordianArea& other) {
-			DynamicArea::operator=(other);
-			clickable = other.clickable;
-			clickable.relative = &current.output;
-		}
-		AccordianArea(Area<double> default, Area<double> small) : DynamicArea(default), clickable{ getArea() } {
-			addStateArea("small", small);
-			setClickableArea(0, 0, 0.1, 1);
-		}
-		void setClickableArea(int fromX, int fromY, double scaleX, double scaleY) {
-			clickable.offset.x = fromX;
-			clickable.offset.y = fromY;
-			clickable.scale.x = scaleX;
-			clickable.scale.y = scaleY;
-			clickable.relative = &current.output;
-		}
-		void draw(SDL_Renderer* r) {
-			DynamicArea::draw(r);
-			//draw clickable area
-			Zen::setColor(SDL_Color{ 0, 0, 0, 128 });
-			Zen::drawArea(clickable.getArea());
-		}
-		void update() { DynamicArea::update(); }
-		bool contains(int x, int y) { return DynamicArea::contains(x, y); }
-		bool consume(int x, int y) { 
-			if (!contains(x, y)) return false;
-			if (clickable.consume(x, y))
-			{
-				if (goal == "default") setTarget("small");
-				else setTarget("default");
-				return true;
-			}
-			return false;
-		}
-		virtual SDL_Rect* getArea() {
-			return DynamicArea::getArea();
-		}
-	};
+#include "Area.h"
 /*
 	struct ExpandableArea signs AreaContract {
 		interpolate<Area<double>> lerp;
@@ -274,46 +45,23 @@ namespace Zen {
 		}
 	};*/
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-}
-
-
 class UI::Interface
 {
 public:
 	bool alive = true;
 	//Texture staticData;
 	UI::Image* background = nullptr;
-	Interface() = default;
+	Facet_Sim* sim = nullptr;
+	Interface(Facet_Sim* sim_ref = nullptr);
 	virtual UI::Image* renderBackground() = 0;
 	virtual void update(const UI::info* info = NULL) = 0;
 	virtual UI::info&& getRequestStructure() = 0;
 	virtual int draw() = 0;
 	virtual ~Interface() = default;
 };
+UI::Interface::Interface(Facet_Sim* sim_ref) {
+	sim = sim_ref;
+}
 
 class UIContract
 {
@@ -557,27 +305,11 @@ public:
 
 		area = Area(x, y, w, h);
 		
-		expander = Zen::AccordianArea({ x, y, w, h }, { x + w*.9, y, w, h });
+		expander = Zen::AccordianArea({ x, y, w, h }, { x + w*.8, y, w, h });
+		expander.setClickableArea(0, 0.4*h, 0.2, 0.2);
+		expander.backgroundColor = {0,0,0,255*.7};
 		//expander.setState("default", { x, y, w, h });
 		//expander.addState("small", { x+w*.9, y, w*0.1, h });
-
-		int offset = 0;
-
-		std::vector<std::string> texts = { { "Cancel", "Move", "FireBreak", "FireFight" } };
-		using boost::property_tree::ptree;
-		auto items = cfg->get_child_optional("Items");
-		if (items.is_initialized())
-		{
-			for (auto& item : items.get())
-			{
-				Texture* t = new Texture(context, item.second.get<std::string>("Icon"));
-				MenuItem* i = new MenuItem(context, Area(x + (offset * 10) + (w*++offset), y, w, h), SDL_Color{ 255, 0, 0, 255 }, font);
-				i->addText(i->area.rect.x + 10, i->area.rect.y + 10, std::to_string(offset));
-				i->addText(i->area.rect.x + 10, i->area.rect.y + 40, texts[offset - 1]);
-				icons.push_back(std::make_pair(t, i));
-				//data
-			}
-		}
 	}
 
 	virtual ~ListUI() {
@@ -640,13 +372,13 @@ public:
 		expander.draw(context->renderer);
 		modern::Text&& text = modern::Text(
 			context, std::to_string(incidents-acknowledgedIncidents)+" Incidents", 
-			expander.current.left() + expander.current.w*0.2, expander.current.top() + 10, font, SDL_Color{ 0, 0, 0, 255 });
+			expander.current.left() + expander.current.w*0.3, expander.current.top() + 10, font, SDL_Color{ 255, 255, 255, 255 });
 		text.draw();
 		return 1;
 	}
 };
 
-class UI::MenuUI : public UI::Interface {
+class UI::MenuUI : public UI::Interface{
 public:
 	using Texture = modern::Texture;
 	using MenuItem = modern::Button;
@@ -666,6 +398,7 @@ public:
 	Context* context;
 	Container icons;
 	TTF_Font* font;
+	std::vector<std::string> texts = { { "Cancel" } };
 
 	MenuUI(SDL_Window* w, SDL_Renderer* r, const int& iconSize, std::vector<string> items) : size{ iconSize } {
 		init();
@@ -678,7 +411,7 @@ public:
 	}
 
 	/*Requires cfg contains an integer called iconsize at its root.*/
-	MenuUI(UI::art::context* ctx, UI::info* cfg) : size{ cfg->get<int>("iconSize") }
+	MenuUI(UI::art::context* ctx, UI::info* cfg, Facet_Sim* sim_ref=nullptr) : Interface{ sim_ref }, size{ cfg->get<int>("iconSize") }
 	{
 		init();
 		context = new Context(ctx->first, ctx->second);
@@ -693,7 +426,6 @@ public:
 		int offset = 0;
 
 
-		std::vector<std::string> texts = { { "Cancel" } };
 		auto abilities = cfg->get_child_optional("Abilities");
 		if (abilities.is_initialized())
 		{
@@ -736,6 +468,7 @@ public:
 		auto mouseData = info->get_child_optional("Mouse");
 		int x, y, left, right, middle; //mouse info
 		bool mouseUpdated = mouseData.is_initialized();
+
 		if (mouseUpdated)
 		{
 			x = mouseData->get<int>("x");
@@ -745,11 +478,23 @@ public:
 			middle = mouseData->get_optional<int>("middle").get_value_or(0);
 		}
 
+		if (sim->selectedUnit == nullptr) {
+			alive = false;
+			return;
+		}
+
+		int index = 0;
 		for (auto icon : icons)
 		{
 			icon.second->update(x, y);
-			if (icon.second->hovering && left == 2)
+			if (icon.second->hovering && left==2){
 				alive = false;
+				if (sim->selectedUnit == nullptr)
+					return;
+				std::string newStatus = texts.at(index);
+				sim->selectedUnit->status = newStatus;
+			}
+			++index;
 		}
 
 		expansion += (1 - expansion)*0.1;
@@ -770,7 +515,7 @@ public:
 	}
 };
 
-UI::Interface* UI::makeDetail(UI::info& cfg, UI::art::context& ctx)
+UI::Interface* UI::makeDetail(UI::info& cfg, UI::art::context& ctx, Facet_Sim* sim_ref)
 {
 	auto type = cfg.get<std::string>("Type");
 	if (type=="Normal")
@@ -783,7 +528,7 @@ UI::Interface* UI::makeDetail(UI::info& cfg, UI::art::context& ctx)
 	}
 	else if (type == "Menu")
 	{
-		return new MenuUI(&ctx, &cfg);
+		return new MenuUI(&ctx, &cfg, sim_ref);
 	}
 	else if (type == "List")
 	{
@@ -796,7 +541,7 @@ UI::Interface* UI::makeDetail(UI::info& cfg, UI::art::context& ctx)
 
 
 
-UI::UI(UI::art::context& ctx, UI::info& cfg) : detail{ makeDetail(cfg,ctx) }
+UI::UI(UI::art::context& ctx, UI::info& cfg, Facet_Sim* sim_ref) : detail{ makeDetail(cfg, ctx, sim_ref) }
 {
 	type = cfg.get<std::string>("Type");
 	detail->renderBackground();

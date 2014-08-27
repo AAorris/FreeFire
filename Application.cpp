@@ -70,6 +70,7 @@ void Application::run()
 			if (item.second.get<std::string>("Type") != "Menu")
 				uis.elements.push_back(new UI(gfx->context(), item.second));
 		}
+		
 	}
 	else {
 		SDL_ShowSimpleMessageBox(0, "Configuration problem", "Couldn't find ui items...", NULL);
@@ -107,7 +108,7 @@ void Application::run()
 	std::lognormal_distribution<double> distribution{ 0.3, 0.4 };
 	auto rnormal = std::bind(distribution, engine);
 
-	PerlinNoise pn{0};
+	PerlinNoise pn{(unsigned int)time(nullptr)};
 
 	/*Terrain generation
 	Noise should range from -1 : 1
@@ -117,8 +118,8 @@ void Application::run()
 	{
 		int x = i % size - size/2;
 		int y = i / size - size/2;
-		double noise = sin(x/10.0);
-		//double noise = pn.noise(x/64.0, y/64.0, 0)*2-1;
+		//double noise = sin(x/10.0);
+		double noise = pn.noise(x/32.0, y/32.0, 0)*2-1;
 		//double noise = rnormal();
 		//noise = noise*0.5;
 		char elevation = ((noise) * 127);
@@ -133,10 +134,10 @@ void Application::run()
 		//land.insert(std::make_pair(scalar(x,y),dynamic_cast<tile::Data*>(newLand)));
 		
 		if (newLand->isWater() == false && newLand->elevation < 32 && rand()%100 < newLand->treeChance()*100)
-			sim.insert(scalar(x, y), (rand() % 100 > 50) ? '3' : '4');
+			sim.insert(scalar(x, y), (pn.noise(x / 64.0, y / 64.0, elevation/5.0) > 0.5) ? '3' : '4');
 	}
 
-	gfx->drawTerrain(&sim.data[tile::GEOGRAPHYGROUP]);
+	gfx->drawTerrain(&sim.data[tile::GEOGRAPHYGROUP], &sim.data[tile::OBJECTGROUP]);
 
 	while (SDL_QuitRequested() == false && playing)
 	{
@@ -236,6 +237,34 @@ void Application::run()
 
 		auto& set = sim.data;
 
+		using boost::property_tree::ptree;
+
+		ptree wind{};
+		wind.put<int>("N", sim.wind("N"));
+		wind.put<int>("S", sim.wind("S"));
+		wind.put<int>("E", sim.wind("E"));
+		wind.put<int>("W", sim.wind("W"));
+
+		ptree mouseData{};
+		mouseData.put<int>("x", mousex);
+		mouseData.put<int>("y", mousey);
+		int leftState = leftMouseReleased ? 2 : (mouse&SDL_BUTTON_LEFT) ? 1 : 0;
+		mouseData.put<int>("left", leftState);
+		int rightState = rightMouseReleased ? 2 : (mouse&SDL_BUTTON_RIGHT) ? 1 : 0;
+		mouseData.put<int>("right", rightState);
+		int middleState = (mouse&SDL_BUTTON_MIDDLE) ? 1 : 0;
+		mouseData.put<int>("middle", middleState);
+
+		sim.information.put_child("Wind", wind);
+		sim.information.put_child("Mouse", mouseData);
+		sim.information.put<int>("Incidents", sim.information.get_optional<int>("Incidents").get_value_or(0));
+		auto isDead = [&sim](UI* i){
+			bool alive = i->isAlive();
+			return alive == false;
+		};
+		uis.elements = std::vector<UI*>(uis.elements.begin(), std::remove_if(begin(uis.elements), end(uis.elements), isDead));
+		//should be before you deselect the selected unit so menus know where to look
+		uis.update(&sim.information, 16);
 
 		if (leftMouseReleased)
 		{
@@ -272,7 +301,7 @@ void Application::run()
 				uicfg.put_child("Background.Area", area);
 				uicfg.put_child("Abilities", abilities);
 				uicfg.put("Type", "Menu");
-				uis.elements.push_back(new UI(gfx->context(), uicfg));
+				uis.elements.push_back(new UI(gfx->context(), uicfg, &sim));
 			}
 		}
 
@@ -288,27 +317,7 @@ void Application::run()
 				gfx->highlightCell(sim.selectedUnit->destination.get());
 		}
 
-		using boost::property_tree::ptree;
-
-		ptree wind{};
-		wind.put<int>("N", sim.wind("N"));
-		wind.put<int>("S", sim.wind("S"));
-		wind.put<int>("E", sim.wind("E"));
-		wind.put<int>("W", sim.wind("W"));
-
-		ptree mouseData{};
-		mouseData.put<int>("x", mousex);
-		mouseData.put<int>("y", mousey);
-		int leftState = leftMouseReleased ? 2 : (mouse&SDL_BUTTON_LEFT) ? 1 : 0;
-		mouseData.put<int>("left", leftState);
-		int rightState = rightMouseReleased ? 2 : (mouse&SDL_BUTTON_RIGHT) ? 1 : 0;
-		mouseData.put<int>("right", rightState);
-		int middleState = (mouse&SDL_BUTTON_MIDDLE) ? 1 : 0;
-		mouseData.put<int>("middle", middleState);
-
-		sim.information.put_child("Wind",wind);
-		sim.information.put_child("Mouse", mouseData);
-		sim.information.put<int>("Incidents", sim.information.get_optional<int>("Incidents").get_value_or(0));
+		
 		//element->update(&newData);
 		//element->draw();
 
@@ -323,9 +332,6 @@ void Application::run()
 		for (auto& item : uis.elements) {
 			item->draw();
 		}
-		uis.elements = std::vector<UI*>(uis.elements.begin(), std::remove_if(begin(uis.elements), end(uis.elements), [](UI* i){ return !i->isAlive(); }));
-
-		uis.update(&sim.information, 16);
 
 		gfx->present();
 
