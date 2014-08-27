@@ -263,6 +263,7 @@ public:
 	//
 	const int size;
 	Context* context;
+
 	Container icons;
 	TTF_Font* font;
 	Area area;
