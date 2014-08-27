@@ -18,7 +18,9 @@ public:
 	bool operator==(const Tool_Asset& a) const;
 	bool operator<(const Tool_Asset& a) const;
 	void draw(int x, int y, int w, int h, bool centered) const;
+	void draw(SDL_Rect* rect) const;
 	std::string getPath() const;
+	SDL_Texture* getTexture() const;
 	int getSize() const;
 }; 
 

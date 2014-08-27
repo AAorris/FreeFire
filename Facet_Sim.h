@@ -7,6 +7,7 @@
 #include "Tool_Configurable.h"
 #include "Tool_Data.h"
 #include "scalar.h"
+#include "Facet_Sim.h"
 #include <boost\property_tree\ptree.hpp>
 //#include <map>
 #include <unordered_map>

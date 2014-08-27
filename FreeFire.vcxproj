@@ -129,6 +129,8 @@
     <ClInclude Include="Algorithms.h" />
     <ClInclude Include="Application.h" />
     <ClInclude Include="Application_FreeFire.h" />
+    <ClInclude Include="Archiving.h" />
+    <ClInclude Include="Area.h" />
     <ClInclude Include="ArtHelp.h" />
     <ClInclude Include="camera_data.h" />
     <ClInclude Include="ExperimentalGFX.h" />
@@ -151,6 +153,7 @@
     <ClInclude Include="Role_TeamBoard.h" />
     <ClInclude Include="scalar.h" />
     <ClInclude Include="SDLButton.h" />
+    <ClInclude Include="Simulation.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="Tool.h" />
     <ClInclude Include="Tool_Asset.h" />
@@ -159,6 +162,7 @@
     <ClInclude Include="Tool_Messenger.h" />
     <ClInclude Include="Tool_Pos.h" />
     <ClInclude Include="Tool_UIElement.h" />
+    <ClInclude Include="User.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="assets\Session.INFO" />

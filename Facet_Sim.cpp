@@ -1,9 +1,9 @@
 #include "stdafx.h"
+#include "Facet_Sim.h"
 #include <fstream>
 #include <algorithm>
 #include <random>
 #include <iomanip>
-#include "Facet_Sim.h"
 #include "Tool_Pos.h"
 #include "Tool_Configurable.h"
 #include "scalar.h"
@@ -13,8 +13,6 @@ in char(8 bit) containers), has a hash implementation, and
 all sorts of other goodies.*/
 #include <bitset>
 #include <exception>
-#define CLASS Facet_Sim
-#include "PIMPL.h"
 
 /*Iterate in a square from x1y1 to x2y2 giving you x and y.
  ! Remember 'forEnd'!*/
@@ -24,7 +22,7 @@ for (int x = static_cast<int>(begin.x); x <= static_cast<int>(end.x); x++)
 /*Just to close the outer for loop*/
 #define forEnd }
 
-CTOR() : data{6} {
+Facet_Sim::Facet_Sim() : data{6} {
 
 }
 
@@ -32,15 +30,16 @@ int windN = 0;
 int windS = 0;
 int windE = 0;
 int windW = 0;
+int spreadTime = 10000;
 
-facet::group_item_value& CLASS::operator()(const tile::group_type& group, const scalar& pos)
+facet::group_item_value& Facet_Sim::operator()(const tile::group_type& group, const scalar& pos)
 {
 	using facet::Group;
 	using facet::Item;
 	return Item(pos, &Group(group,&data)->second)->second;
 }
 
-std::vector<std::pair<scalar, tile::Data*>> CLASS::around(const tile::group_type& type, const scalar& pos)
+std::vector<std::pair<scalar, tile::Data*>> Facet_Sim::around(const tile::group_type& type, const scalar& pos)
 {
 	std::vector<std::pair<scalar, tile::Data*>> result{};
 	auto begin = pos - scalar(1, 1);
@@ -62,6 +61,7 @@ std::vector<std::pair<scalar, tile::Data*>> CLASS::around(const tile::group_type
 
 void Facet_Sim::connect(_cfg& session)
 {
+
 	templates.insert(std::make_pair('F', tile::Template{ 'f', 'F', tile::Template::assets_type{ "assets/fire.png" }, tile::properties_type{} }));
 	try {
 		information.add_child("Config", session.data);
@@ -120,11 +120,13 @@ void Facet_Sim::connect(_cfg& session)
 			auto t = tile::Template{ group, id, assets, properties };
 			templates.insert(std::make_pair(t.id, t));
 		}
+		spreadTime = session->get_optional<int>("Settings.fireSpreadTime").get_value_or(10000);
 	}
 	catch (std::exception e)
 	{
 		SDL_ShowSimpleMessageBox(0, "Sim Error", e.what(), NULL);
 	}
+
 }
 
 void Facet_Sim::update(int ms)
@@ -163,9 +165,21 @@ void Facet_Sim::update(int ms)
 						if (land->isWater() == false) {
 							newUnits.push_back(unit);
 							oldUnits.push_back(std::pair<scalar, tile::Data*>(key, data));
-							auto& stack = this->data[tile::OBJECTGROUP][curPos];
-							if (stack.empty() == false)
-								(*stack.begin())->setProperty("Burnable", 0);
+							if (unit->status == "PlaceFireBreak"){
+								auto& stack = this->data[tile::OBJECTGROUP][curPos];
+								if (stack.empty() == false)
+									(*stack.begin())->burnable = false;
+							}
+							if (unit->status == "FightFire"){
+								auto& group = this->data[tile::FIREGROUP];
+								if (group[curPos].empty() == false){
+									//group.erase(curPos);
+									//assuming if there's fire there's an object
+									//this->data[tile::OBJECTGROUP].erase(curPos);
+								}
+								//if (stack.empty() == false)
+									//(*stack.begin())
+							}
 							
 						}
 						else {
@@ -180,13 +194,13 @@ void Facet_Sim::update(int ms)
 					auto fire = static_cast<tile::Fire*>(data);
 					auto location = stack.first;
 
-					if (windW > windE && fire->fireTime > 10000 / 5)
+					if (windW > windE && fire->fireTime > spreadTime / 5)
 					{
 						for (auto& subItem : around(tile::OBJECTGROUP, location))
 						{
 							if (subItem.first.x > location.x)
 								continue;
-							auto burnability = subItem.second->properties.get_optional<double>("Burnable").get_value_or(0);
+							auto burnability = subItem.second->burnable;
 							if (burnability != 0)
 							{
 								auto subLocation = subItem.first;
@@ -197,13 +211,13 @@ void Facet_Sim::update(int ms)
 						}
 					}
 
-					if (windW < windE && fire->fireTime > 10000 / 5)
+					if (windW < windE && fire->fireTime > spreadTime / 5)
 					{
 						for (auto& subItem : around(tile::OBJECTGROUP, location))
 						{
 							if (subItem.first.x < location.x)
 								continue;
-							auto burnability = subItem.second->properties.get_optional<double>("Burnable").get_value_or(0);
+							auto burnability = subItem.second->burnable;
 							if (burnability != 0)
 							{
 								auto subLocation = subItem.first;
@@ -215,11 +229,11 @@ void Facet_Sim::update(int ms)
 						}
 					}
 
-					if (fire->fireTime > 10000)
+					if (fire->fireTime > spreadTime)
 					{
 						for (auto subItem : around(tile::OBJECTGROUP, location))
 						{
-							auto burnability = subItem.second->properties.get_optional<double>("Burnable").get_value_or(0);
+							auto burnability = subItem.second->burnable;
 							if (burnability != 0)
 							{
 								auto subLocation = subItem.first;
@@ -284,9 +298,12 @@ bool Facet_Sim::insert(const scalar& pos, tile::Fire* fire)
 		double oldElevation = static_cast<tile::Land*>(*data[tile::GEOGRAPHYGROUP][fire->pos].begin())->elevation;
 		double newElevation = static_cast<tile::Land*>(*data[tile::GEOGRAPHYGROUP][pos].begin())->elevation;
 		// old/new 1/2
-		double slopeSpeed = (newElevation - oldElevation);
-		fire->fireSpeed += slopeSpeed; // gets bigger when new>old
-		data[tile::FIREGROUP][pos].insert(new tile::Fire(fire, pos));
+		double slopeSpeed = (newElevation - oldElevation)*5;
+		auto newFire = new tile::Fire(fire, pos);
+		if (slopeSpeed > 0)
+			newFire->fireSpeed *= slopeSpeed; // gets bigger when new>old
+		//newFire->fireTime += slopeSpeed;
+		data[tile::FIREGROUP][pos].insert(newFire);
 		return true;
 	}
 	return false;
@@ -300,10 +317,14 @@ void Facet_Sim::select(const scalar& cell)
 	y = static_cast<int>(round(cell.y));
 
 	auto it = facet::Item(scalar(x,y),&data[tile::UNITGROUP]);
-	if (it != end(data[tile::UNITGROUP]))
-		selectedUnit = static_cast<tile::Unit*>(*it->second.begin());
+	if (it != end(data[tile::UNITGROUP])) {
+		auto &u = it->second;
+		if (!u.empty())
+			selectedUnit = static_cast<tile::Unit*>(*u.begin());
+	}
 	else
 		selectedUnit = nullptr;
+	assert(selectedUnit != 0xBAADFOOD);
 }
 
 int& Facet_Sim::wind(std::string direction)
@@ -331,5 +352,3 @@ Facet_Sim::~Facet_Sim() {
 		}
 	}
 }
-
-#undef CLASS

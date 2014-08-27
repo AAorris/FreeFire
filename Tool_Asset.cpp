@@ -67,6 +67,11 @@ public:
 		if (SDL_RenderCopy(renderer, texture, NULL, &r)==0) return;
 	}
 
+	void draw(SDL_Rect* rect) const
+	{
+		if (SDL_RenderCopy(renderer, texture, NULL, rect) == 0) return;
+	}
+
 }; 
 
 CTOR(const std::string& path, void* ren = NULL) :
@@ -87,6 +92,10 @@ void CLASS::draw(int x=-1, int y=-1, int w=-1, int h=-1, bool centered = false) 
 {
 	p->draw(x, y, w, h, centered);
 }
+void CLASS::draw(SDL_Rect* rect) const
+{
+	p->draw(rect);
+}
 
 bool CLASS::operator==(const CLASS& c) const
 {
@@ -95,6 +104,10 @@ bool CLASS::operator==(const CLASS& c) const
 
 CLASS::CLASS(CLASS&& other) : p{ std::move(other.p) }
 {
+}
+
+SDL_Texture* CLASS::getTexture() const {
+	return p->texture;
 }
 
 std::string CLASS::getPath() const

@@ -42,7 +42,7 @@ public:
 	scalar getCell(const scalar& mouse);
 	void highlightCell(const scalar& pos, SDL_Color& col = SDL_Color{ 255, 0, 0, 255 });
 	void fillCell(const scalar& pos, SDL_Color& col);
-	void drawTerrain(facet::master_group_type* terrain);
+	void drawTerrain(facet::master_group_type* terrain, facet::master_group_type* objects);
 	//void connect(Tool_Data* to);
 	//void draw(Tool_Data* data);
 	std::pair<SDL_Window*, SDL_Renderer*> context();

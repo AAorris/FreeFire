@@ -2,6 +2,7 @@
 #include "Facet_Gfx.h"
 #include <algorithm>
 #include <unordered_map>
+#include <SDL2\SDL_surface.h>
 #include <SDL2\SDL_image.h>
 #include "camera_data.h"
 #include "Geometry.h"
@@ -32,6 +33,8 @@ struct IMPL {
 	using search_type = char;
 	using search_result = container_type::iterator;
 	using potential_result = boost::optional<search_result>;
+
+	SDL_Surface* fireColors;
 	//typedef std::unordered_set< _asset >	container_type;
 	//typedef container_type::iterator		container_iterator;
 	//typedef const _asset&					container_value;
@@ -71,39 +74,57 @@ struct IMPL {
 			{ 0, 0, 0, 255 },
 			{ 32, 24, 1, 255 },
 			{ 32, 64, 5, 255 },
+			{ 40, 80, 20, 255 },
+			{ 80, 100, 60, 255 },
 			{ 128, 128, 128, 255 },
+			{ 255, 255, 255, 255 },
 			{ 255, 255, 255, 255 }
 		};
-		double ind = height * 4;
-		int find = toint(floor(height*4));
-		int cind = toint(ceil(height * 4));
+		int maxIndex = colors.size() - 1;
+		double ind = height * maxIndex;
+		int find = toint(floor(height*maxIndex));
+		int cind = toint(ceil(height * maxIndex));
 		double blend = cind - (ind);
-		const double flatSize = 0.45;
+		const double flatSize = 0.5 * 0.1;
 		
-		if (blend > flatSize || blend < (1 - flatSize)) {
-			if (cind <= 4)
+		//blend range
+		if (blend > flatSize && blend < (1 - flatSize)) {
+			if (cind < colors.size())
 			{
-				SDL_Color blended = BlendColor(colors[find], colors[cind], 1 - blend);
+				SDL_Color blended = BlendColor(colors[find], colors[cind], 1 - ((blend - flatSize) / ((1 - flatSize) - flatSize)));
 				SetColor(renderer, blended);
 				SDL_RenderFillRect(renderer, NULL);
+				if (height <= (tile::Land::waterLevel + 128) / 255.0){
+					SDL_SetRenderDrawColor(renderer, 15, 64, 128, 64);
+					SDL_RenderFillRect(renderer, NULL);
+				}
 			}
-			else if (cind > 4) {
-				SDL_Color blended = BlendColor(colors[find], colors[find], 1 - blend);
+			else if (cind == colors.size()) {
+				SDL_Color blended = BlendColor(colors[find], colors[find], (blend - flatSize) / (1 - flatSize));
 				SetColor(renderer, blended);
 				SDL_RenderFillRect(renderer, NULL);
+				if (height <= (tile::Land::waterLevel + 128) / 255.0){
+					SDL_SetRenderDrawColor(renderer, 15, 64, 128, 64);
+					SDL_RenderFillRect(renderer, NULL);
+				}
 			}
 		}
+		//not in blend range : FLOOR IT
 		else {
-			SDL_Color blended = BlendColor(colors[find], colors[find], 1 - blend);
+			SDL_Color blended = BlendColor(colors[cind], colors[find], round(blend));
 			SetColor(renderer, blended);
 			SDL_RenderFillRect(renderer, NULL);
+			if (height <= (tile::Land::waterLevel + 128) / 255.0){
+				SDL_SetRenderDrawColor(renderer, 15, 64, 128, 64);
+				SDL_RenderFillRect(renderer, NULL);
+			}
 		}
 		///SetColor(renderer, { 255, 0, 0, 255 });
 		//SDL_RenderDrawRect(renderer, NULL);
 		SetTarget(renderer);
 	}
 
-	SDL_Texture* createTerrainTexture(facet::master_group_type* terrain)
+	SDL_Texture* createTerrainTexture(facet::master_group_type* terrain, facet::master_group_type* objects)
 	{
 		int period = 1000 / 12;
 		int goal = SDL_GetTicks() + period;
@@ -137,7 +158,7 @@ struct IMPL {
 				hCol = (hCol<0)?0:(hCol>255)?255:hCol;
 				bufferTerrain(realPos.x, realPos.y, h);
 				SDL_SetTextureBlendMode(alphaBuffer, SDL_BLENDMODE_BLEND);
-				SDL_SetTextureAlphaMod(alphaBuffer, 255);
+				SDL_SetTextureAlphaMod(alphaBuffer, 255/4);
 				SetTarget(renderer, texture);
 				SDL_RenderSetClipRect(renderer, &clip);
 				Render(renderer, alphaBuffer, NULL, &r);
@@ -155,7 +176,19 @@ struct IMPL {
 				SDL_RenderPresent(renderer);
 			}
 		}
+		SetTarget(renderer, texture);
+		SDL_RenderSetClipRect(renderer, &clip);
+		scalar base = objects->begin()->first;
+		for (auto& stack : *objects) {
+			for (auto& item : stack.second) {
+				SDL_Rect rect = SDL_Rect{ (stack.first.x - base.x)*res + res/4, (stack.first.y - base.y)*res + res / 4, res*0.5, res*0.5 };
+				
+				draw(find(item->id), scalar(0,0), &rect);
+				//draw(find(item->id), stack.first);
+			}
+		}
 		SDL_Rect screen = SDL_Rect{ 0, 0, screenSize.x, screenSize.y };
+		SetTarget(renderer);
 		SDL_RenderSetClipRect(renderer, &screen);
 		Render(renderer, texture, NULL, NULL);
 		SDL_RenderPresent(renderer);
@@ -187,6 +220,8 @@ struct IMPL {
 	{
 		SDL_DisplayMode screen;
 		SDL_GetCurrentDisplayMode(0, &screen);
+
+		fireColors = IMG_Load("assets/fireColors.png");
 
 		if (relativeToScreen){
 			screen.w = static_cast<int>(screen.w*(size.x / 100));
@@ -262,7 +297,7 @@ struct IMPL {
 		return selected;
 	}
 
-	void draw(potential_result const& item, const scalar& location){
+	void draw(potential_result const& item, const scalar& location, SDL_Rect* rect = nullptr){
 
 		if (item.get_ptr() == NULL)
 			throw std::range_error("Search for item failed!");
@@ -272,7 +307,11 @@ struct IMPL {
 		int size = static_cast<int>(res*zoom);
 
 		auto& asset = item.get()->second;
-		asset.draw(static_cast<int>(view.x), static_cast<int>(view.y), size, size, true);
+
+		if (rect == nullptr)
+			asset.draw(static_cast<int>(view.x), static_cast<int>(view.y), size, size, true);
+		else
+			asset.draw(rect);
 
 	}
 
@@ -382,7 +421,7 @@ const _asset* CLASS::getAsset(const tile::id_type& key)
 void CLASS::zoomCamera(const double& dz)
 {
 	p->zoom += dz;
-	p->zoom = SDL_max(p->zoom, 4.0 / p->res); //zoom should not be lower than 1.0/res
+	p->zoom = SDL_max(p->zoom, 4.5 / p->res); //zoom should not be lower than 1.0/res
 }
 void CLASS::moveCamera(const scalar& dp)
 {
@@ -514,12 +553,18 @@ void Facet_Gfx::draw(master_type& data)
 						highlightCell(pos, c);
 					}
 
-					if (groupKey == tile::GEOGRAPHYGROUP) {
+					else if (groupKey == tile::GEOGRAPHYGROUP) {
 						tile::Land* f = reinterpret_cast<tile::Land*>(item);
 						int h = f->elevation;
 						if (f->isWater())
 							fillCell(pos, SDL_Color{ 0, 0, 255, 255 });
 						continue;
+					}
+					else if (groupKey == tile::OBJECTGROUP) {
+						if (item->burnable == false)
+							fillCell(pos, SDL_Color{ 255, 128, 0, 128 });
+						auto& id = item->id;
+						draw(id, pos);
 					}
 					else {
 						auto& id = item->id;
@@ -555,10 +600,6 @@ void Facet_Gfx::draw(master_type& data)
 
 void CLASS::drawOverview(master_type& data)
 {
-	//scalar cameraPos = p->Transform(scalar(p->terrainOffset), p->SCREENSPACE, p->CAMERASPACE);
-	//scalar terrainSize = p->terrainOffset;
-	//scalar cameraPos = p->Transform(terrainSize, p->SIMSPACE, p->SCREENSPACE);
-	//scalar size = p->terrainOffset*-2 * p->res;
 
 	scalar firstCell = data[tile::GEOGRAPHYGROUP].begin()->first;
 	scalar lastCell = data[tile::GEOGRAPHYGROUP].rbegin()->first;
@@ -571,7 +612,6 @@ void CLASS::drawOverview(master_type& data)
 	int y = realFirst.y - p->res/2*p->zoom;
 	int w = realLast.x-realFirst.x;
 	int h = realLast.y-realFirst.y;
-
 
 	SDL_Rect terrainRect = { x, y, w, h };//{ cameraPos.x, cameraPos.y, size.x, size.y };
 	SDL_RenderCopy(p->renderer, p->geographyTexture, NULL, &terrainRect);
@@ -601,11 +641,16 @@ void CLASS::drawOverview(master_type& data)
 						{
 
 							tile::Fire* f = reinterpret_cast<tile::Fire*>(item);
-							SDL_Color c = SDL_Color{
-								(f->regionID / 3 * 25) + ((f->regionID % 3) == 0 ? 155 : 0) + 128,
-								((f->regionID % 3) == 1 ? 155 : 0),
-								((f->regionID % 3) == 0 ? 155 : 0),
-								128 };
+							int index = (std::hash<std::string>()(f->region)+std::hash<int>()(f->regionID)) % p->fireColors->w;
+							SDL_LockSurface(p->fireColors);
+							Uint8* pixel = reinterpret_cast<Uint8*>(reinterpret_cast<Uint32*>(p->fireColors->pixels) + index);
+							Uint8 r = *(pixel+0);
+							Uint8 g = *(pixel+1);
+							Uint8 b = *(pixel+2);
+							Uint8 a = *(pixel+3);
+							SDL_UnlockSurface(p->fireColors);
+							SDL_Color c = SDL_Color{r,g,b,a};
+
 							auto& id = item->id;
 							auto asset = p->find(id);
 							if (f->isRoot) {
@@ -617,16 +662,24 @@ void CLASS::drawOverview(master_type& data)
 								}
 							}
 							else {
-								p->draw(p->find(0xF1), pos);
+
+								auto asset = p->find(0xF1);
+								SDL_SetTextureColorMod((*asset)->second.getTexture(), c.r, c.g, c.b);
+								p->draw(asset, pos);
 								//highlightCell(pos, c);
 							}
 						}
 
 						if (groupKey == tile::OBJECTGROUP) {
-							//if (false)//item->hasProperty("Burnable") == false)
-							//{
-							//	fillCell(pos, SDL_Color{ 255, 128, 0, 64 });
-							//}
+							if (item->burnable == false)
+								fillCell(pos, SDL_Color{ 255, 128, 0, 128 });
+							//auto& id = item->id;
+							//draw(id, pos);
+						}
+						if (groupKey == tile::UNITGROUP) {
+							tile::Unit* f = reinterpret_cast<tile::Unit*>(item);
+							if (f->destination.is_initialized())
+								highlightCell(f->destination.get(), SDL_Color{ 255, 0, 0, 128 });	
 							auto& id = item->id;
 							draw(id, pos);
 						}
@@ -767,7 +820,7 @@ void CLASS::fillCell(const scalar& cell, SDL_Color& col)
 }
 
 /*Dont' call twice unless you free p->geographytexture*/
-void CLASS::drawTerrain(facet::master_group_type* terrain) {
+void CLASS::drawTerrain(facet::master_group_type* terrain, facet::master_group_type* objects) {
 	//SDL_DestroyTexture(p->geographyTexture);
-	p->geographyTexture = p->createTerrainTexture(terrain);
+	p->geographyTexture = p->createTerrainTexture(terrain,objects);
 }
