@@ -11,7 +11,7 @@ public:
 	Facet_UI();
 	virtual ~Facet_UI();
 	Facet_UI(const Facet_UI& c) = delete;
-	void update(UI::info* info, int ms);
+	bool update(UI::info* info, int ms);
 	void connect(const cfg& session);
 };
 

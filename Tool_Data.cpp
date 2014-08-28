@@ -71,6 +71,7 @@ namespace tile {
 		move_time += ms;
 		if (destination.is_initialized())
 		{
+			status = "Moving";
 			if (move_time > 1000)
 			{
 				auto delta = destination.get() - position;
@@ -107,7 +108,7 @@ namespace tile {
 		Fire::fireCounter = std::unordered_map<std::string, int>();
 	}
 
-	Fire::Fire(const tile::Template* config, const scalar& posRef, const std::string& p_region) : tile::Data(config, posRef)
+	Fire::Fire(const tile::Template* config, const scalar& posRef, const std::string& p_region) : tile::Data(config, posRef), firstFire{ this }
 	{
 		region = p_region;
 		Fire::fireCounter[region] = Fire::fireCounter[region]+1;
@@ -117,10 +118,11 @@ namespace tile {
 	}
 
 
-	Fire::Fire(const Fire* const parent, const scalar& posRef) : tile::Data(parent->root, posRef)
+	Fire::Fire(Fire* const parent, const scalar& posRef) : tile::Data(parent->root, posRef), firstFire{ parent->firstFire }
 	{
 		region = parent->region;
 		regionID = parent->regionID;
+		++(firstFire->incidents);
 		fireTime = 0;
 	}
 

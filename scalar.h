@@ -53,6 +53,10 @@ public:
 
 bool operator<(const scalar& l, const scalar& r);
 bool operator==(const scalar& l, const scalar& r);
+inline std::ostream& operator<<(std::ostream& stream, const scalar& s) {
+	stream << s.x << " " << s.y;
+	return stream;
+}
 
 template<> struct std::hash<scalar>
 {

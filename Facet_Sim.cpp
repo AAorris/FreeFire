@@ -133,7 +133,7 @@ void Facet_Sim::update(int ms)
 {
 	std::vector<tile::Unit*> newUnits;
 	std::vector<std::pair<scalar, tile::Data*>> oldUnits;
-	std::vector<std::pair<scalar, tile::Data*>> oldFires;
+	std::vector<scalar> oldFires;
 
 	windN += rand() % 1000;
 	windS += rand() % 1000;
@@ -158,29 +158,40 @@ void Facet_Sim::update(int ms)
 					auto unit = static_cast<tile::Unit*>(data);
 					auto key = stack.first;
 					auto curPos = unit->position;
+
+					if (unit->status == "PlaceFireBreak"){
+						auto& stack = this->data[tile::OBJECTGROUP][curPos];
+						if (stack.empty() == false)
+							(*stack.begin())->burnable = false;
+						unit->status = "Idle";
+					}
+					if (unit->status == "FightFire"){
+
+						auto& group = this->data[tile::FIREGROUP];
+						if (group[curPos].empty() == false){
+
+							auto& Ostack = this->data[tile::OBJECTGROUP][curPos];
+							if (Ostack.empty() == false)
+								(*Ostack.begin())->burnable = false;
+
+							auto& f = this->data[tile::FIREGROUP].find(curPos);
+							oldFires.push_back(curPos);
+							//group.erase(curPos);
+							//assuming if there's fire there's an object
+							//this->data[tile::OBJECTGROUP].erase(curPos);
+						}
+						//if (stack.empty() == false)
+						//(*stack.begin())
+						unit->status = "Idle";
+					}
+
 					if (curPos != key)
 					{
 						tile::Data* landptr = *this->data[tile::GEOGRAPHYGROUP].lower_bound(curPos)->second.begin();
 						auto land = static_cast<tile::Land*>(landptr);
 						if (land->isWater() == false) {
 							newUnits.push_back(unit);
-							oldUnits.push_back(std::pair<scalar, tile::Data*>(key, data));
-							if (unit->status == "PlaceFireBreak"){
-								auto& stack = this->data[tile::OBJECTGROUP][curPos];
-								if (stack.empty() == false)
-									(*stack.begin())->burnable = false;
-							}
-							if (unit->status == "FightFire"){
-								auto& group = this->data[tile::FIREGROUP];
-								if (group[curPos].empty() == false){
-									//group.erase(curPos);
-									//assuming if there's fire there's an object
-									//this->data[tile::OBJECTGROUP].erase(curPos);
-								}
-								//if (stack.empty() == false)
-									//(*stack.begin())
-							}
-							
+							oldUnits.push_back(std::pair<scalar, tile::Data*>(key, data));							
 						}
 						else {
 							unit->position = key;
@@ -257,7 +268,7 @@ void Facet_Sim::update(int ms)
 		units[it.first].erase(it.second);
 	}
 	for (auto it: oldFires) {
-		fires[it.first].erase(it.second);
+		fires.erase(it);
 	}
 	for (auto& it : newUnits) {
 		units[it->position].insert(it);
@@ -298,7 +309,7 @@ bool Facet_Sim::insert(const scalar& pos, tile::Fire* fire)
 		double oldElevation = static_cast<tile::Land*>(*data[tile::GEOGRAPHYGROUP][fire->pos].begin())->elevation;
 		double newElevation = static_cast<tile::Land*>(*data[tile::GEOGRAPHYGROUP][pos].begin())->elevation;
 		// old/new 1/2
-		double slopeSpeed = (newElevation - oldElevation)*5;
+		double slopeSpeed = (newElevation - oldElevation);
 		auto newFire = new tile::Fire(fire, pos);
 		if (slopeSpeed > 0)
 			newFire->fireSpeed *= slopeSpeed; // gets bigger when new>old
@@ -324,7 +335,7 @@ void Facet_Sim::select(const scalar& cell)
 	}
 	else
 		selectedUnit = nullptr;
-	assert(selectedUnit != 0xBAADFOOD);
+	//assert(selectedUnit != 0xBAADFOOD);
 }
 
 int& Facet_Sim::wind(std::string direction)

@@ -53,6 +53,6 @@ public:
 	//void setIsPoppedOut(bool popped);
 
 	void draw();
-	void update(const info* data);
+	bool update(const info* data);
 	UI::Image getTexture();
 };

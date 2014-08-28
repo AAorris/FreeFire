@@ -93,13 +93,15 @@ namespace tile
 	public:
 		static std::unordered_map<std::string, int> fireCounter;
 		static void initFire();
+		Fire* const firstFire;
 		double fireTime = 0;
 		double fireSpeed = 1.0;
 		std::string region;
 		int regionID;
+		int incidents = 0;
 		bool isRoot = false;
 		Fire(const tile::Template* config, const scalar& posRef, const std::string& p_region="ON");
-		Fire(const Fire* const parent, const scalar& posRef);
+		Fire(Fire* const parent, const scalar& posRef);
 		virtual void operator=(const Template*);
 		virtual void update(int ms);
 	};

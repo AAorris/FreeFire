@@ -68,6 +68,7 @@ namespace ff {
 			std::sdl::renderer _renderer;
 		public:
 			Context();
+			Context(SDL_Window* window, SDL_Renderer* renderer);
 			/*Load a texture from path. Put in texture storage. Return key to texture*/
 			storage::key loadTexture(const std::string& path);
 			/*Store a loaded texture*/
@@ -81,9 +82,14 @@ namespace ff {
 }
 
 inline ff::gfx::Context::Context() :
-	_window{ SDL_CreateWindow("Window", 0, 0, 1024, 768, 0) },
-	_renderer{ SDL_CreateRenderer(_window.get(),-1,SDL_RENDERER_TARGETTEXTURE|SDL_RENDERER_ACCELERATED) }
-{
+_window{ SDL_CreateWindow("Window", 0, 0, 1024, 768, 0) },
+_renderer{ SDL_CreateRenderer(_window.get(),-1,SDL_RENDERER_TARGETTEXTURE|SDL_RENDERER_ACCELERATED) } {
+
+}
+
+inline ff::gfx::Context::Context(SDL_Window* window, SDL_Renderer* renderer) :
+_window{ window },
+_renderer{ renderer } {
 
 }
 
