@@ -54,7 +54,7 @@ public:
 	Facet_Sim* sim = nullptr;
 	Interface(Facet_Sim* sim_ref = nullptr);
 	virtual UI::Image* renderBackground() = 0;
-	virtual void update(const UI::info* info = NULL) = 0;
+	virtual bool update(const UI::info* info = NULL) = 0;
 	virtual UI::info&& getRequestStructure() = 0;
 	virtual int draw() = 0;
 	virtual ~Interface() = default;
@@ -73,7 +73,7 @@ public:
 	UI::info  exitData;
 	virtual void init(const UI::art::context, UI::info* config) = 0;
 	virtual int draw() = 0;
-	virtual void update(const UI::info* updateData = nullptr) = 0;
+	virtual bool update(const UI::info* updateData = nullptr) = 0;
 	virtual ~UIContract() = default;
 };
 
@@ -185,8 +185,9 @@ public:
 		SDL_SetRenderTarget(renderer, NULL);
 		return background;
 	}
-	virtual void update(const UI::info* p_info = NULL)
+	virtual bool update(const UI::info* p_info = NULL)
 	{
+		return false;
 	}
 	virtual int draw()
 	{
@@ -214,7 +215,7 @@ public:
 	}
 
 	virtual UI::info&& getRequestStructure() { return std::move(UI::info{}); }
-	virtual void update(const UI::info* p_info = NULL)
+	virtual bool update(const UI::info* p_info = NULL)
 	{
 		if (p_info != NULL)
 		{
@@ -228,6 +229,7 @@ public:
 				rotation = atan2(wind.y, wind.x);
 			}
 		}
+		return false;
 	}
 	virtual int draw()
 	{
@@ -271,7 +273,8 @@ public:
 	int incidents;
 	int acknowledgedIncidents = 0;
 	bool wasClicked = false;
-	ListUI(SDL_Window* w, SDL_Renderer* r, const int& iconSize, std::vector<string> items) : size{ iconSize } {
+
+	ListUI(SDL_Window* w, SDL_Renderer* r, const int& iconSize, std::vector<string> items, Facet_Sim* sim_ref) : Interface{ sim_ref }, size{ iconSize } {
 		init();
 		*context = Context{ w, r };
 		for (const string& path : items) {
@@ -282,7 +285,7 @@ public:
 	}
 
 	/*Requires cfg contains an integer called iconsize at its root.*/
-	ListUI(UI::art::context* ctx, UI::info* cfg) : size{ cfg->get<int>("iconSize") }, expander()
+	ListUI(UI::art::context* ctx, UI::info* cfg, Facet_Sim* sim_ref) : Interface{ sim_ref }, size{ cfg->get<int>("iconSize") }, expander()
 	{
 		init();
 		context = new Context(ctx->first, ctx->second);
@@ -328,7 +331,7 @@ public:
 	}
 
 	void init() {
-		font = TTF_OpenFont("normalFont.ttf", 32);
+		font = TTF_OpenFont("normalFont.ttf", 12);
 		alive = true;
 		icons = Container();
 	}
@@ -337,10 +340,10 @@ public:
 		return nullptr;
 	}
 
-	virtual void update(const UI::info* info = NULL) {
+	virtual bool update(const UI::info* info = NULL) {
 		int i = 0;
 		if (!alive)
-			return;
+			return false;
 
 		expander.update();
 
@@ -356,17 +359,22 @@ public:
 			middle = mouseData->get_optional<int>("middle").get_value_or(0);
 		}
 		auto incidentUpdate = info->get_optional<int>("Incidents");
+
 		if (incidentUpdate.is_initialized()){
 			incidents = incidentUpdate.get();
 		}
+
 		if (expander.contains(x, y) && left > 0)
 			wasClicked = true;
+
 		if (left == 0 && wasClicked){
 			bool consumed = expander.consume(x, y);
 			if (!consumed)
 				acknowledgedIncidents = incidents;
 			wasClicked = false;
 		}
+
+		return wasClicked;
 	}
 
 	virtual int draw() {
@@ -375,6 +383,59 @@ public:
 			context, std::to_string(incidents-acknowledgedIncidents)+" Incidents", 
 			expander.current.left() + expander.current.w*0.3, expander.current.top() + 10, font, SDL_Color{ 255, 255, 255, 255 });
 		text.draw();
+
+		int offset = expander.current.top() + 60;
+
+		if (sim != nullptr) {
+			int x, y;
+			auto mouse = SDL_GetMouseState(&x, &y);
+			for (auto& unitStack : sim->data[tile::UNITGROUP]) {
+				std::stringstream txt;
+				for (auto& unit : unitStack.second) {
+					tile::Unit* ptr = static_cast<tile::Unit*>(unit);
+					txt = std::stringstream{ "" };
+					txt << "Unit " << std::hex << unit->UID << "\n";
+					txt << "Status " << ptr->status << "\n";
+					txt << "Position: " << ptr->position << "\n";
+					if (ptr!=nullptr && ptr->destination.is_initialized())
+						txt << "Destination: " << ptr->destination.get() << "\n";
+					modern::Text&& unitTxt = modern::Text(
+						context, txt.str(),
+						expander.current.left() + expander.current.w*0.3, offset, font, SDL_Color{ 255, 255, 255, 255 });
+					Zen::Areaf background = Zen::Areaf{ (double)unitTxt.x, (double)unitTxt.y, (double)unitTxt.w, (double)unitTxt.h, };
+					if (background.contains(x, y))
+					{
+						SDL_SetRenderDrawColor(context->renderer, 0, 0, 0, 64);
+						SDL_RenderFillRect(context->renderer, background.getArea());
+						if ((mouse&SDL_BUTTON(1)) > 0)
+							sim->selectedUnit = ptr;
+					}
+					//background.getArea()
+					unitTxt.draw();
+					offset += 20 + unitTxt.h;
+				}
+			}
+			offset += 20;
+			for (auto& unitStack : sim->data[tile::FIREGROUP]) {
+				std::stringstream txt;
+				for (auto& fire : unitStack.second) {
+					tile::Fire* ptr = static_cast<tile::Fire*>(fire);
+					if (ptr->isRoot == false)
+						continue;
+					txt = std::stringstream{ "" };
+					txt << "Fire " << ptr->region << "-" << ptr->regionID << "\n";
+					txt << "Position: " << ptr->pos;
+					txt << "Incidents: " << ptr->incidents;
+					modern::Text&& renderTxt = modern::Text(
+						context, txt.str(),
+						expander.current.left() + expander.current.w*0.3, offset, font, SDL_Color{ 255, 255, 255, 255 });
+					Zen::Areaf background = Zen::Areaf{ (double)renderTxt.x, (double)renderTxt.y, (double)renderTxt.w, (double)renderTxt.h, };
+					//background.getArea()
+					renderTxt.draw();
+					offset += 20 + renderTxt.h;
+				}
+			}
+		}
 		return 1;
 	}
 };
@@ -461,10 +522,10 @@ public:
 		return nullptr;
 	}
 
-	virtual void update(const UI::info* info = NULL) {
+	virtual bool update(const UI::info* info = NULL) {
 		int i = 0;
 		if (!alive)
-			return;
+			return false;
 
 		auto mouseData = info->get_child_optional("Mouse");
 		int x, y, left, right, middle; //mouse info
@@ -481,9 +542,10 @@ public:
 
 		if (sim->selectedUnit == nullptr) {
 			alive = false;
-			return;
+			return false;
 		}
 
+		bool consumed = false;
 		int index = 0;
 		for (auto icon : icons)
 		{
@@ -491,7 +553,8 @@ public:
 			if (icon.second->hovering && left==2){
 				alive = false;
 				if (sim->selectedUnit == nullptr)
-					return;
+					return false;
+				consumed = true;
 				std::string newStatus = texts.at(index);
 				sim->selectedUnit->status = newStatus;
 			}
@@ -499,6 +562,7 @@ public:
 		}
 
 		expansion += (1 - expansion)*0.1;
+		return false;
 	}
 
 	virtual int draw() {
@@ -533,7 +597,7 @@ UI::Interface* UI::makeDetail(UI::info& cfg, UI::art::context& ctx, Facet_Sim* s
 	}
 	else if (type == "List")
 	{
-		return new ListUI(&ctx, &cfg);
+		return new ListUI(&ctx, &cfg, sim_ref);
 	}
 	else {
 		return new BasicImplementation(ctx, &cfg);
@@ -552,9 +616,9 @@ void UI::draw()
 {
 	detail->draw();
 }
-void UI::update(const UI::info* newData)
+bool UI::update(const UI::info* newData)
 {
-	detail->update(newData);
+	return detail->update(newData);
 }
 bool UI::isAlive() {
 	return detail->alive;

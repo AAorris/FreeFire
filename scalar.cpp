@@ -17,11 +17,11 @@ bool operator==(const scalar& l, const scalar& r)
 	return l.x == r.x && l.y == r.y;
 }
 
-std::ostream& operator<<(std::ostream& s, const scalar& val)
-{
-	s << val.x << " " << val.y << " ";
-	return s;
-}
+//std::ostream& operator<<(std::ostream& s, const scalar& val)
+//{
+//	s << val.x << " " << val.y << " ";
+//	return s;
+//}
 
 std::istream& operator>>(std::istream& is, scalar& val)
 {

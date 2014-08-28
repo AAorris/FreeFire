@@ -13,12 +13,14 @@ Facet_UI::~Facet_UI()
 }
 
 
-void Facet_UI::update(UI::info* info, int ms)
+bool Facet_UI::update(UI::info* info, int ms)
 {
+	bool consumed = false;
 	for (auto& ui : elements)
 	{
-		ui->update(info);
+		consumed |= ui->update(info);
 	}
+	return consumed;
 }
 
 void Facet_UI::connect(const cfg& session)

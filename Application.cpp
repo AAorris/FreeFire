@@ -68,7 +68,7 @@ void Application::run()
 		for (auto item : items.get())
 		{
 			if (item.second.get<std::string>("Type") != "Menu")
-				uis.elements.push_back(new UI(gfx->context(), item.second));
+				uis.elements.push_back(new UI(gfx->context(), item.second, &sim));
 		}
 		
 	}
@@ -264,45 +264,48 @@ void Application::run()
 		};
 		uis.elements = std::vector<UI*>(uis.elements.begin(), std::remove_if(begin(uis.elements), end(uis.elements), isDead));
 		//should be before you deselect the selected unit so menus know where to look
-		uis.update(&sim.information, 16);
+		bool consumedMouse = uis.update(&sim.information, 16);
+
+		if (consumedMouse)
+			leftMouseReleased = false;
 
 		if (leftMouseReleased)
 		{
 			auto cell = gfx->getCell(scalar(mousex, mousey));
 			gfx->highlightCell(cell);
 			sim.select(cell);
+		}
 
-			bool hasMenu = false;
-			for (auto ui : uis.elements)
+		bool hasMenu = false;
+		for (auto ui : uis.elements)
+		{
+			if (ui->type == "Menu")
 			{
-				if (ui->type == "Menu")
-				{
-					//ui->isAlive(false);
-					hasMenu = true;
-				}
+				//ui->isAlive(false);
+				hasMenu = true;
 			}
-			if (!hasMenu && sim.selectedUnit!=nullptr)
-			{
-				auto uicfg = boost::property_tree::ptree(sessionConfig->get_child("Config.UI.SelectionMenu"));
-				auto unitcfg = sim.selectedUnit->root->properties;
-				auto area = boost::property_tree::ptree();
-				auto abilities = boost::property_tree::ptree();
-				for (auto i = unitcfg.begin(); i != unitcfg.end(); i++)
-					abilities.put(i->first.data(),i->first.data());
+		}
+		if (!hasMenu && sim.selectedUnit != nullptr)
+		{
+			auto uicfg = boost::property_tree::ptree(sessionConfig->get_child("Config.UI.SelectionMenu"));
+			auto unitcfg = sim.selectedUnit->root->properties;
+			auto area = boost::property_tree::ptree();
+			auto abilities = boost::property_tree::ptree();
+			for (auto i = unitcfg.begin(); i != unitcfg.end(); i++)
+				abilities.put(i->first.data(), i->first.data());
 
-				std::ostringstream oss;
-				boost::property_tree::write_info(oss, abilities);
-				auto str = oss.str();
+			std::ostringstream oss;
+			boost::property_tree::write_info(oss, abilities);
+			auto str = oss.str();
 
-				area.put<int>("w", uicfg.get<int>("Background.Area.w"));
-				area.put<int>("h", uicfg.get<int>("Background.Area.h"));
-				area.put<int>("x", mousex + uicfg.get<int>("Background.Area.x"));
-				area.put<int>("y", mousey + uicfg.get<int>("Background.Area.y"));
-				uicfg.put_child("Background.Area", area);
-				uicfg.put_child("Abilities", abilities);
-				uicfg.put("Type", "Menu");
-				uis.elements.push_back(new UI(gfx->context(), uicfg, &sim));
-			}
+			area.put<int>("w", uicfg.get<int>("Background.Area.w"));
+			area.put<int>("h", uicfg.get<int>("Background.Area.h"));
+			area.put<int>("x", mousex + uicfg.get<int>("Background.Area.x"));
+			area.put<int>("y", mousey + uicfg.get<int>("Background.Area.y"));
+			uicfg.put_child("Background.Area", area);
+			uicfg.put_child("Abilities", abilities);
+			uicfg.put("Type", "Menu");
+			uis.elements.push_back(new UI(gfx->context(), uicfg, &sim));
 		}
 
 		if (rightMouseReleased && sim.selectedUnit != NULL){
