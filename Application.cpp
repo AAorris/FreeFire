@@ -313,12 +313,6 @@ void Application::run()
 			sim.selectedUnit->destination = dest;
 		}
 
-		if (sim.selectedUnit != NULL)
-		{
-			gfx->highlightCell(sim.selectedUnit->position);
-			if (sim.selectedUnit->destination.is_initialized())
-				gfx->highlightCell(sim.selectedUnit->destination.get());
-		}
 
 		
 		//element->update(&newData);
@@ -332,9 +326,17 @@ void Application::run()
 			gfx->draw(sim.data);
 		}
 
+		if (sim.selectedUnit != NULL)
+		{
+			gfx->highlightCell(sim.selectedUnit->position);
+			if (sim.selectedUnit->destination.is_initialized())
+				gfx->highlightCell(sim.selectedUnit->destination.get());
+		}
+
 		for (auto& item : uis.elements) {
 			item->draw();
 		}
+
 
 		gfx->present();
 

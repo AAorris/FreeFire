@@ -549,7 +549,15 @@ void Facet_Gfx::draw(master_type& data)
 					if (groupKey == tile::FIREGROUP)
 					{
 						tile::Fire* f = reinterpret_cast<tile::Fire*>(item);
-						SDL_Color c = SDL_Color{ (f->regionID / 3 * 25) + ((f->regionID % 3) == 0 ? 155 : 0), +((f->regionID % 3) == 1 ? 155 : 0), +((f->regionID % 3) == 0 ? 155 : 0), 255 };
+						int index = (std::hash<std::string>()(f->region) + std::hash<int>()(f->regionID)) % p->fireColors->w;
+						SDL_LockSurface(p->fireColors);
+						Uint8* pixel = reinterpret_cast<Uint8*>(reinterpret_cast<Uint32*>(p->fireColors->pixels) + index);
+						Uint8 r = *(pixel + 0);
+						Uint8 g = *(pixel + 1);
+						Uint8 b = *(pixel + 2);
+						Uint8 a = *(pixel + 3);
+						SDL_UnlockSurface(p->fireColors);
+						SDL_Color c = SDL_Color{ r, g, b, a };
 						highlightCell(pos, c);
 					}
 

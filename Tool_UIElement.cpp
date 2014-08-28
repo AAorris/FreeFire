@@ -460,6 +460,7 @@ public:
 	Context* context;
 	Container icons;
 	TTF_Font* font;
+	tile::Unit* originalUnit;
 	std::vector<std::string> texts = { { "Cancel" } };
 
 	MenuUI(SDL_Window* w, SDL_Renderer* r, const int& iconSize, std::vector<string> items) : size{ iconSize } {
@@ -469,6 +470,7 @@ public:
 			Texture* t = new Texture(context, path);
 			MenuItem* i = new MenuItem(context, Area{ 0, 0, size, size }, SDL_Color{ 60, 60, 60, 60 }, font);
 			icons.push_back(std::make_pair(t, i));
+			originalUnit = sim->selectedUnit;
 		}
 	}
 
@@ -477,6 +479,8 @@ public:
 	{
 		init();
 		context = new Context(ctx->first, ctx->second);
+
+		originalUnit = sim->selectedUnit;
 
 		auto a = cfg->get_child("Background.Area");
 		int x, y, w, h;
@@ -524,6 +528,9 @@ public:
 
 	virtual bool update(const UI::info* info = NULL) {
 		int i = 0;
+
+		if (originalUnit != sim->selectedUnit)
+			alive = false;
 		if (!alive)
 			return false;
 
