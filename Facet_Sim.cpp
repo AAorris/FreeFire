@@ -140,7 +140,9 @@ void Facet_Sim::update(int ms)
 	windE += rand() % 1000;
 	windW += rand() % 1000;
 
+
 	int incidents = 0;
+
 
 	for (auto& group : data)
 	{
@@ -159,13 +161,13 @@ void Facet_Sim::update(int ms)
 					auto key = stack.first;
 					auto curPos = unit->position;
 
-					if (unit->status == "PlaceFireBreak"){
+					if (unit->status == "PlaceFireBreak" && unit->status_time > 1000){
 						auto& stack = this->data[tile::OBJECTGROUP][curPos];
 						if (stack.empty() == false)
 							(*stack.begin())->burnable = false;
 						unit->status = "Idle";
 					}
-					if (unit->status == "FightFire"){
+					if (unit->status == "FightFire" && unit->status_time > 1000){
 
 						auto& group = this->data[tile::FIREGROUP];
 						if (group[curPos].empty() == false){
@@ -264,14 +266,17 @@ void Facet_Sim::update(int ms)
 	information.put<int>("Incidents", information.get_optional<int>("Incidents").get_value_or(0) + incidents);
 	auto& units = data[tile::UNITGROUP];
 	auto& fires = data[tile::FIREGROUP];
-	for (auto it : oldUnits){
+	for (auto& it : oldUnits){
 		units[it.first].erase(it.second);
+		SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Removing %d from location (%f,%f)\n ", it.second->UID, it.first.x, it.first.y);
 	}
-	for (auto it: oldFires) {
+	for (auto& it: oldFires) {
 		fires.erase(it);
+		SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Removing Fire from location(%f, %f)\n ", it.x, it.y);
 	}
 	for (auto& it : newUnits) {
 		units[it->position].insert(it);
+		SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Adding unit %d to location (%f,%f)\n ", it->UID, it->pos.x, it->pos.y);
 	}
 }
 
@@ -297,6 +302,7 @@ bool Facet_Sim::insert(const scalar& pos, const template_key& key)
 		stack.insert(new tile::Data(&root, pos));
 		return true;
 	}
+	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Insert %c at (%f,%f)\n ", key, pos.x, pos.y);
 		//insertHelper<tile::Fire>(pos, group, root);
 	return false;
 }
@@ -315,6 +321,7 @@ bool Facet_Sim::insert(const scalar& pos, tile::Fire* fire)
 			newFire->fireSpeed *= slopeSpeed; // gets bigger when new>old
 		//newFire->fireTime += slopeSpeed;
 		data[tile::FIREGROUP][pos].insert(newFire);
+		SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "fire at (%f,%f)\n ", pos.x, pos.y);
 		return true;
 	}
 	return false;
@@ -335,6 +342,7 @@ void Facet_Sim::select(const scalar& cell)
 	}
 	else
 		selectedUnit = nullptr;
+	SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Selecting unit %d at (%f,%f)\n ", selectedUnit, cell.x, cell.y);
 	//assert(selectedUnit != 0xBAADFOOD);
 }
 

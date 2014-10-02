@@ -407,8 +407,10 @@ public:
 					{
 						SDL_SetRenderDrawColor(context->renderer, 0, 0, 0, 64);
 						SDL_RenderFillRect(context->renderer, background.getArea());
-						if ((mouse&SDL_BUTTON(1)) > 0)
+						if ((mouse&SDL_BUTTON(1)) > 0){
 							sim->selectedUnit = ptr;
+							SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Select (%f,%f) [unit %d] \n ", ptr->pos.x, ptr->pos.y, ptr->UID);
+						}
 					}
 					//background.getArea()
 					unitTxt.draw();
@@ -554,16 +556,23 @@ public:
 
 		bool consumed = false;
 		int index = 0;
+		auto keyboard = SDL_GetKeyboardState(NULL);
 		for (auto icon : icons)
 		{
 			icon.second->update(x, y);
-			if (icon.second->hovering && left==2){
-				alive = false;
+			if (icon.second->hovering && left == 2 || keyboard[(SDL_SCANCODE_1 + index)]){
 				if (sim->selectedUnit == nullptr)
 					return false;
 				consumed = true;
 				std::string newStatus = texts.at(index);
-				sim->selectedUnit->status = newStatus;
+				if (sim->selectedUnit->status != newStatus && newStatus!="Cancel") {
+					sim->selectedUnit->status = newStatus;
+					sim->selectedUnit->status_time = 0;
+					SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Command: %s \n ", newStatus.c_str());
+				}
+				if (newStatus == "Cancel") {
+					alive = false;
+				}
 			}
 			++index;
 		}

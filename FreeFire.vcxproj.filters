@@ -19,6 +19,9 @@
     <Filter Include="Old_cpp">
       <UniqueIdentifier>{d88f4633-4666-461a-b5b8-dc52dc873da7}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\UI">
+      <UniqueIdentifier>{6a0e736d-f934-4c90-a52b-3568e163befc}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Client.cpp">
@@ -219,6 +222,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Area.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AAUI.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="BaseUI.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

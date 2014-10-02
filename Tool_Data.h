@@ -72,6 +72,7 @@ namespace tile
 		const std::string status_demobilizing = "demobilizing";
 
 		std::string status = status_idle;
+		int status_time = 0;
 
 		enum DIRECTION {
 			DIR_NONE,

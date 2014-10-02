@@ -69,6 +69,7 @@ namespace tile {
 	{
 		Data::update(ms);
 		move_time += ms;
+		status_time += ms;
 		if (destination.is_initialized())
 		{
 			status = "Moving";
