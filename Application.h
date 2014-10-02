@@ -7,6 +7,7 @@ class Application
 public:
 
 	Facet_UI uis;
+	long nextUpdateTicks;
 
 	Application();
 	virtual ~Application();

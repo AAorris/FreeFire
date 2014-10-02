@@ -126,12 +126,14 @@
     <ClCompile Include="Tool_UIElement.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AAUI.h" />
     <ClInclude Include="Algorithms.h" />
     <ClInclude Include="Application.h" />
     <ClInclude Include="Application_FreeFire.h" />
     <ClInclude Include="Archiving.h" />
     <ClInclude Include="Area.h" />
     <ClInclude Include="ArtHelp.h" />
+    <ClInclude Include="BaseUI.h" />
     <ClInclude Include="camera_data.h" />
     <ClInclude Include="ExperimentalGFX.h" />
     <ClInclude Include="Facet.h" />

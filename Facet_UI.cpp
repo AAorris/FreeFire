@@ -16,9 +16,11 @@ Facet_UI::~Facet_UI()
 bool Facet_UI::update(UI::info* info, int ms)
 {
 	bool consumed = false;
-	for (auto& ui : elements)
-	{
-		consumed |= ui->update(info);
+	if (info->empty() == false && info!=nullptr) {
+		for (auto& ui : elements)
+		{
+			consumed |= ui->update(info);
+		}
 	}
 	return consumed;
 }

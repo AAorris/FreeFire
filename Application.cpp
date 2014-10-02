@@ -42,6 +42,7 @@ void Application::run()
 {
 	using v2 = AA::Pos;
 	uis = Facet_UI();
+	nextUpdateTicks = SDL_GetTicks();
 	//activeUIs = std::vector<UI*>();
 
 	if (!SDL_WasInit(0))
@@ -55,7 +56,7 @@ void Application::run()
 
 	SDL_FlushEvents(0, UINT_MAX);
 
-	_cfg oldConfig = _cfg{ "config.INFO" };
+	//_cfg oldConfig = _cfg{ "config.INFO" };
 	_cfg sessionConfig = _cfg{ "assets/Session.INFO" };
 	sim.connect(sessionConfig);
 	gfx->connect(sessionConfig);
@@ -99,7 +100,7 @@ void Application::run()
 	bool playing = true;
 	SDL_Event e;
 
-	const int size = sessionConfig->get_optional<int>("Settings.worldSize").get_value_or(200);
+	const int size = sessionConfig->get_optional<int>("Settings.worldSize").get_value_or(100);
 	const double coverage = sessionConfig->get_optional<double>("Settings.treeCoverage").get_value_or(0.8);
 
 
@@ -114,12 +115,15 @@ void Application::run()
 	Noise should range from -1 : 1
 	elevation should scale it from -127 : 127
 	*/
-	for (int i = 0; i < size*size; i++)
+	int w = 1.6 * size;
+	int h = 1.0 * size;
+	for (int i = 0; i < w*h; i++)
 	{
-		int x = i % size - size/2;
-		int y = i / size - size/2;
+		int x = i % w - w/2;
+		int y = i / w - h/2;
 		//double noise = sin(x/10.0);
-		double noise = pn.noise(x/32.0, y/32.0, 0)*2-1;
+		double scale = 32 + size*0.2;
+		double noise = pn.noise(x/scale, y/scale, 0)*2-1;
 		//double noise = rnormal();
 		//noise = noise*0.5;
 		char elevation = ((noise) * 127);
@@ -306,11 +310,13 @@ void Application::run()
 			uicfg.put_child("Abilities", abilities);
 			uicfg.put("Type", "Menu");
 			uis.elements.push_back(new UI(gfx->context(), uicfg, &sim));
+			SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Make Unit UI \n ");
 		}
 
 		if (rightMouseReleased && sim.selectedUnit != NULL){
 			scalar dest = scalar::round(gfx->getCell(scalar(mousex, mousey)));
 			sim.selectedUnit->destination = dest;
+			SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Target(location (%f,%f)) \n ", dest.x, dest.y);
 		}
 
 
@@ -341,6 +347,10 @@ void Application::run()
 		gfx->present();
 
 		long ticks = SDL_GetTicks();
+		if (ticks > nextUpdateTicks){
+			SDL_LogMessage(SDL_LOG_CATEGORY_APPLICATION, SDL_LOG_PRIORITY_INFO, "Time : %d\n ", SDL_GetTicks());
+			nextUpdateTicks += 300;
+		}
 		sim.update(16);
 		long ticks2 = SDL_GetTicks();
 		int delay = 16 - (ticks2 - ticks);

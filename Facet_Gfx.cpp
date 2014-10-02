@@ -86,6 +86,11 @@ struct IMPL {
 		int cind = toint(ceil(height * maxIndex));
 		double blend = cind - (ind);
 		const double flatSize = 0.5 * 0.1;
+
+		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+		SDL_RenderClear(renderer);
+		SDL_RenderCopy(renderer, tileMask, NULL, NULL);
+		SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 		
 		//blend range
 		if (blend > flatSize && blend < (1 - flatSize)) {
@@ -94,19 +99,11 @@ struct IMPL {
 				SDL_Color blended = BlendColor(colors[find], colors[cind], 1 - ((blend - flatSize) / ((1 - flatSize) - flatSize)));
 				SetColor(renderer, blended);
 				SDL_RenderFillRect(renderer, NULL);
-				if (height <= (tile::Land::waterLevel + 128) / 255.0){
-					SDL_SetRenderDrawColor(renderer, 15, 64, 128, 64);
-					SDL_RenderFillRect(renderer, NULL);
-				}
 			}
 			else if (cind == colors.size()) {
 				SDL_Color blended = BlendColor(colors[find], colors[find], (blend - flatSize) / (1 - flatSize));
 				SetColor(renderer, blended);
 				SDL_RenderFillRect(renderer, NULL);
-				if (height <= (tile::Land::waterLevel + 128) / 255.0){
-					SDL_SetRenderDrawColor(renderer, 15, 64, 128, 64);
-					SDL_RenderFillRect(renderer, NULL);
-				}
 			}
 		}
 		//not in blend range : FLOOR IT
@@ -114,11 +111,13 @@ struct IMPL {
 			SDL_Color blended = BlendColor(colors[cind], colors[find], round(blend));
 			SetColor(renderer, blended);
 			SDL_RenderFillRect(renderer, NULL);
-			if (height <= (tile::Land::waterLevel + 128) / 255.0){
-				SDL_SetRenderDrawColor(renderer, 15, 64, 128, 64);
-				SDL_RenderFillRect(renderer, NULL);
-			}
 		}
+
+		if (height <= (tile::Land::waterLevel + 128) / 255.0){
+			SDL_SetRenderDrawColor(renderer, 15, 64, 128, 64);
+			SDL_RenderFillRect(renderer, NULL);
+		}
+
 		///SetColor(renderer, { 255, 0, 0, 255 });
 		//SDL_RenderDrawRect(renderer, NULL);
 		SetTarget(renderer);
@@ -133,9 +132,9 @@ struct IMPL {
 		auto last = terrain->rbegin()->first;// terrain->end()--->first; // that's a -- and a ->
 		int w = last.x - first.x;
 		int h = last.y - first.y;
-		SDL_Texture* texture = CreateTextureTarget(renderer, w*res, h*res);
+		SDL_Texture* texture = CreateTextureTarget(renderer, w, h);
 		SetTarget(renderer, texture);
-		SDL_Rect clip = SDL_Rect{ 0, 0, w*res, w*res };
+		SDL_Rect clip = SDL_Rect{ 0, 0, w+1, h+1 };
 		SDL_RenderSetClipRect(renderer, &clip);
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
 		SDL_RenderFillRect(renderer, NULL);
@@ -143,12 +142,12 @@ struct IMPL {
 		for (auto& stack : *terrain)
 		{
 			auto pos = stack.first;
-			scalar realPos = (stack.first - first)*res;
+			scalar realPos = (stack.first - first);
 			SDL_Rect r = SDL_Rect{
-				realPos.x - res,
-				realPos.y - res,
-				res * 3,
-				res * 3
+				realPos.x - res * 0,
+				realPos.y - res * 0,
+				1,
+				1
 			};
 			for (auto& item : stack.second)
 			{
@@ -158,13 +157,14 @@ struct IMPL {
 				hCol = (hCol<0)?0:(hCol>255)?255:hCol;
 				bufferTerrain(realPos.x, realPos.y, h);
 				SDL_SetTextureBlendMode(alphaBuffer, SDL_BLENDMODE_BLEND);
-				SDL_SetTextureAlphaMod(alphaBuffer, 255/4);
+				SDL_SetTextureColorMod(texture, 255, 255, 255);
+				SDL_SetTextureAlphaMod(alphaBuffer, 255);
 				SetTarget(renderer, texture);
 				SDL_RenderSetClipRect(renderer, &clip);
 				Render(renderer, alphaBuffer, NULL, &r);
 				if (h < 0.15){
 					SDL_SetTextureColorMod(texture, 255, 255, 255);
-					SDL_SetRenderDrawColor(renderer, 0, 64, 255, 128/8);
+					SDL_SetRenderDrawColor(renderer, 0, 64, 255, 255);
 					SDL_RenderFillRect(renderer, &r);
 				}
 				SetTarget(renderer);
@@ -176,25 +176,33 @@ struct IMPL {
 				SDL_RenderPresent(renderer);
 			}
 		}
-		SetTarget(renderer, texture);
-		SDL_RenderSetClipRect(renderer, &clip);
+
+
+		SDL_Texture* texture2 = CreateTextureTarget(renderer, w*res, h*res);
+		SetTarget(renderer, texture2);
+		SDL_Rect clip2 = SDL_Rect{ 0, 0, (w + 1)*res, (h + 1)*res };
+		SDL_RenderSetClipRect(renderer, &clip2);
+		SDL_RenderCopy(renderer, texture, NULL, NULL);
 		scalar base = objects->begin()->first;
 		for (auto& stack : *objects) {
 			for (auto& item : stack.second) {
-				SDL_Rect rect = SDL_Rect{ (stack.first.x - base.x)*res + res/4, (stack.first.y - base.y)*res + res / 4, res*0.5, res*0.5 };
-				
-				draw(find(item->id), scalar(0,0), &rect);
+				int trees = rand() % 3+2;
+				for (int i = 0; i < trees; i++) {
+					SDL_Rect rect = SDL_Rect{ (stack.first.x - base.x)*res + rand() % (int)(res/2), (stack.first.y - base.y)*res + rand() % (int)(res/2), res*0.5, res*0.5 };
+					draw(find(item->id), scalar(0, 0), &rect);
+				}
 				//draw(find(item->id), stack.first);
 			}
 		}
 		SDL_Rect screen = SDL_Rect{ 0, 0, screenSize.x, screenSize.y };
 		SetTarget(renderer);
 		SDL_RenderSetClipRect(renderer, &screen);
-		Render(renderer, texture, NULL, NULL);
+		Render(renderer, texture2, NULL, NULL);
 		SDL_RenderPresent(renderer);
 		//SDL_Delay(15000);
 		terrainOffset = scalar(-w / 2, -h / 2);
-		return texture;
+		SDL_DestroyTexture(texture);
+		return texture2;
 	}
 
 	void destroyGeographyMasking()
