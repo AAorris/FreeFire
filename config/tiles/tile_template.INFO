@@ -1,0 +1,19 @@
+; General Tile Template
+
+template "GenericTile" 
+{
+	
+	name "Basic Tile Properties"
+	nickname "T"
+	icon "pineTree.png"
+	
+	; [property] [value]
+	properties {
+		fire_Speed 1.0
+	}
+
+	; [action] [action_time]
+	actions {
+	}
+
+}

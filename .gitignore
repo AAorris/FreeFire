@@ -14,6 +14,7 @@
 [Rr]elease/
 x64/
 build/
+include/
 [Bb]in/
 [Oo]bj/
 
@@ -195,3 +196,9 @@ $RECYCLE.BIN/
 
 
 
+include/GL/wglew.h
+*.cd
+*.zip
+*.exe
+*.lastcodeanalysissucceeded
+*.etl

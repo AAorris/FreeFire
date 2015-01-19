@@ -1,0 +1,23 @@
+; Generic Ground Unit that fights fire
+
+template "GroundFighter" 
+{
+	
+	name "Standard Ground Unit"
+	icon "fire_fighter.png"
+	group "unit"
+
+	; Unit flies or not : 0 or 1
+	unit_flies false
+
+	vision_radius 1
+
+	; [action] [action_time]
+	actions {
+		move 1.5
+		mobilize 2
+		demobilize 2
+		fight_fire 4
+	}
+
+}

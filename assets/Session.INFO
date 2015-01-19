@@ -1,0 +1,388 @@
+Settings {
+	fireSpreadTime 10000
+	worldSize 128
+	coverage 1.0
+}
+
+Config
+{
+
+	UI {
+
+		Information {
+			Type "List"
+			iconSize 32
+			BackgroundColor "255 255 255 255"
+			Show {
+				TotalIncidents
+				NewIncidents
+				TotalUnits
+				FreeUnits
+			}
+			Area "relative" {
+				x 80
+				y 0
+				w 20
+				h 100
+			}
+		}
+
+		SelectionMenu {
+			Type "Menu"
+			iconSize 32
+			Background {
+				Color "255 255 255 255"
+				Area "relative" {
+					x -320
+					y -150
+					w 100
+					h 100
+				}
+			}
+		}
+
+		Placeholder {
+			Type "Normal"
+			Title "FireIcon"
+			Background {
+				Color "60 60 60 255"
+				Image "assets/fire.png"
+			}
+			Area "relative" {
+				w 5
+				h 5
+				x 95
+				y 95
+			}
+		}
+		Compass {
+			Type "Compass"
+			Background {
+				Color "60 60 60 255"
+				Image "assets/compass.png"
+				Needle "assets/needle.png"
+			}
+			Area {
+				x 0
+				y 0
+				w 64
+				h 64
+			}
+		}
+	}
+
+	Fires {
+		BushFire {
+			FightTime 10.0
+			BurnSpeed 0.5
+			Catalysts {
+				GroundCatalyst 1.0
+				TreeCatalyst 0.1
+			}
+		}
+		CrownFire {
+			FightTime 15.0
+			BurnSpeed 2.0
+			Catalysts {
+				TreeCatalyst 1.0
+				GroundCatalyst 0.1
+				AirCatalyst 0.2
+			}
+		}
+	}
+
+	Catalysts {
+		GenericCatalyst {
+			WindFactor 0.8
+			IgniteTime 20.0
+			FightTime 3.0
+			Targets {
+				Bush
+				Trees
+			}
+		}
+		GroundCatalyst {
+			WindFactor 0.6
+			IgniteTime 30.0
+			FightTime 10.0
+			Targets {
+				Bush
+			}
+		}
+		TreeCatalyst {
+			IgniteTime 10.0
+			FightTime 3.0
+			WindFactor 0.5
+			Targets {
+				Trees
+			}
+		}
+		AirCatalyst {
+			IgniteTime 30.0
+			FightTime 1.0
+			WindFactor 1.0
+			Targets {
+				Bush
+				Trees
+			}
+		}
+	}
+
+	Weather {
+		Wind {
+			Speed {
+				N 1.0
+				E 0.0
+				S 0.0
+				W 0.5
+			}
+		}
+		Rain {
+			CheckTime 30.0
+			MinHumidity 80.0
+			ExtinguishChance 0.25
+			ShortTime 30.0
+			LongTime 240.0
+			SimFlags {
+				Rain
+			}
+		}
+		Lightning {
+			ShortCheckTime 0.0
+			LongCheckTime 1000.0
+			Targets {
+				Trees
+			}
+			SimEvents {
+				LightningStrike
+			}
+		}
+		Humidity {
+			Value {
+				Min 0
+				Max 100
+				Average 80
+				ChangeTime 1.0
+			}
+		}
+		Temperature {
+			Value 30.0
+		}
+	}
+
+	Tiles {
+		Normal {
+			Contents {
+				Bush
+			}
+			Burnability 1.0
+			Value 1.0
+			TravelSpeed 1.0
+			Assets {
+				Normal {
+					Type "Icon"
+					Path "Assets/Normal.png"
+				}
+			}
+		}
+		MapleTrees {
+			ID 4
+			Contents {
+				Trees
+			}
+			Burnability 1.5
+			Value 10.0
+			TravelSpeed 0.5
+			Assets {
+				Normal {
+					Type "Icon"
+					Path "Assets/pineTree.png"
+				}
+			}
+		}
+		PineTrees {
+			ID 3
+			Contents {
+				Trees
+			}
+			Burnability 2.0
+			Value 20.0
+			TravelSpeed 0.5
+			Assets {
+				Normal {
+					Type "Icon"
+					Path "Assets/tree.png"
+				}
+			}
+		}
+		Houses {
+			Contents {
+				Houses
+				People
+				Trees
+				Bush
+			}
+			Value -1
+			TravelSpeed 2.0
+		}
+		Road {
+			TravelSpeed 3.0
+		}
+
+	}
+
+	Actions {
+		FightSpark {
+			Prep 0.0
+			Duration 1.0
+			Cleanup 0.0
+			Effects {
+				ExtinguishSpark
+			}
+		}
+		FightFire {
+			Prep 2.0
+			Duration 5.0
+			Cleanup 1.0
+			Effects {
+				ExtinguishFire
+			}
+
+		}
+		PlaceFireBreak {
+			Prep 2.0
+			Duration 1.0
+			Cleanup 1.0
+			Effects {
+				FireBreak
+			}
+		}
+		DropWaterBomb {
+			Prep 0.0
+			Duration 0.0
+			Cleanup 0.0
+			Effects {
+				WaterBomb
+			}
+		}
+		StartControlledFire {
+			Prep 5.0
+			Duration 2.0
+			Cleanup 1.0
+			Effects {
+				LightFire
+			}
+		}
+	}
+
+	Entities {
+		Normal {
+			ID 0
+			MovementTime 1.0
+			VisionRadius 1.0
+			Abilities {
+				FightFire 2.0
+				PlaceFireBreak 2.0
+			}
+			Assets {
+				Normal {
+					Type "Icon"
+					Path "Assets/Normal.png"
+				}
+			}
+		}
+		FireFighter {
+			ID 1
+			MovementTime 1.5
+			VisionRadius 1.0
+			Abilities {
+				FightFire 1.0
+			}
+			Assets {
+				Normal {
+					Type "Icon"
+					Path "Assets/Normal.png"
+				}
+				Small {
+					Type "Icon"
+					Path "Assets/SmallUnit.png"
+				}
+				FightFire {
+					Path "Assets/Animations/FighterFight.png"
+					Animation {
+						FrameWidth 32
+						FrameHeight 32
+						FrameStart 0
+						FrameEnd 1
+						Loop 0
+					}
+				}
+				FightSpark {
+					Path "Assets/Animations/FighterFight.png"
+					Animation {
+						FrameWidth 32
+						FrameHeight 32
+						FrameStart 0
+						FrameEnd 1
+						Loop 0
+					}
+				}
+			}
+		}
+		FireBreaker {
+			ID 2
+			MovementTime 1.25
+			VisionRadius 1.0
+			Abilities {
+				FightFire 3.0
+				PlaceFireBreak 1.0
+			}
+			Assets {
+				Normal {
+					Type "Icon"
+					Path "Assets/Normal.png"
+				}
+			}
+		}
+		Scout {
+			ID b
+			MovementTime 0.8
+			VisionRadius 4.0
+			Assets {
+				Normal {
+					Type "Icon"
+					Path "Assets/Normal.png"
+				}
+			}
+		}
+		Aircraft {
+			ID a
+			MovementTime 0.3
+			VisionRadius 5.0
+			Abilities {
+				DropWaterBomb 1.0
+			}
+			Assets {
+				Normal {
+					Type "Icon"
+					Path "Assets/Normal.png"
+				}
+			}
+		}
+	}
+}
+
+Map {
+	2 "-10 -10"
+	1 "6, 15"
+
+	2 "4 4"
+	2 "-4 5"
+
+	F "1 0"
+	3 "2 0"
+	3 "3 0"
+	4 "4 0"
+	F "10 0"
+	F "-10 -10"
+}
