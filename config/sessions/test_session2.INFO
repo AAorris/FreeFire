@@ -1,0 +1,22 @@
+session "test"
+{
+	tile_size 24
+
+	templates
+	{
+		fire "tiles/fire.INFO"
+		pine_tree "tiles/coniferous_template.INFO"
+		tree "tiles/deciduous_template.INFO"
+
+		g_fighter "units/standard/ground_fighter.INFO"
+		;g_scout "units/standard/ground_scout.INFO"
+		g_breaker "units/standard/ground_breaker.INFO"
+	}
+
+	data "maps/Ontario.INFO"
+
+	events
+	{
+		fire
+	}
+}

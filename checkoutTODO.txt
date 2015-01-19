@@ -1,0 +1,18 @@
+What should be there for a successful compile of the visual studio project
+
+FreeFire
+	include
+		SDL2
+		<SDL2>
+		<SDL2_image>
+			net
+				<SDL2_net>
+	lib
+		SDL2.lib
+		SDL2_image.lib
+		SDL2_net.lib
+		SDL2_ttf.lib
+		SDL2main.lib
+		SDL2test.lib
+	<required dlls>
+	<required images>

@@ -1,0 +1,23 @@
+; Unit That Only Places Fire Breaks
+
+template "GroundBreaker" 
+{
+	
+	name "Fire Break Placer"
+	icon "fire_breaker.png"
+	group "unit"
+
+	; Unit flies or not : 0 or 1
+	unit_flies false
+
+	vision_radius 2
+
+	; [action] [action_time]
+	actions {
+		move 2
+		mobilize 4
+		demobilize 1
+		place_break 3
+	}
+
+}

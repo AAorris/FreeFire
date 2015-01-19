@@ -59,6 +59,7 @@ namespace tile
 		virtual void update(int ms);
 		bool hasProperty(const std::string& property);
 		void setProperty(const std::string& property, double speed);
+		virtual std::ostream& operator<<(std::ostream& o);
 	};
 
 	class Unit : public tile::Data

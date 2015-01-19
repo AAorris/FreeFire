@@ -1,0 +1,18 @@
+template "Fire" 
+{
+	
+	name "imaginary fire"
+	icon "fire.png"
+	group "fire"
+	
+	; [property] [value]
+	properties {
+		burn_time 30
+	}
+
+	; [action] [action_time]
+	actions {
+		smoke 1
+	}
+
+}

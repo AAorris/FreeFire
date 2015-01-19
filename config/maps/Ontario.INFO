@@ -1,0 +1,40 @@
+map "U:\\Pictures\\From Morris Lumia\\Camera roll\\WP_20130114_001.jpg"
+{
+    properties
+    {
+        tile_size 12
+    }
+    layer tree
+    {
+        data
+        {
+            nickname pine_tree
+            x 5
+            y 16
+        }
+        data
+        {
+            nickname pine_tree
+            x 12
+            y 16
+        }
+        data
+        {
+            nickname pine_tree
+            x 13
+            y 15
+        }
+        data
+        {
+            nickname pine_tree
+            x 14
+            y 15
+        }
+        data
+        {
+            nickname pine_tree
+            x 13
+            y 14
+        }
+    }
+}

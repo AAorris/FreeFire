@@ -1,0 +1,125 @@
+Time : 689
+ Time : 714
+ Time : 808
+ Time : 1120
+ Time : 1402
+ Time : 1715
+ Time : 2027
+ Time : 2308
+ Time : 2620
+ Selecting unit 0 at (1.468749,8.046845)
+ Time : 2902
+ Time : 3215
+ Selecting unit 52904408 at (4.218749,4.213047)
+ Make Unit UI 
+ Selecting unit 52904408 at (4.218749,4.214592)
+ Time : 3527
+ Selecting unit 0 at (0.718750,6.873943)
+ Time : 3808
+ Selecting unit 0 at (0.718750,6.905479)
+ Time : 4121
+ Time : 4402
+ Selecting unit 0 at (4.593750,3.843656)
+ Selecting unit 0 at (4.593750,3.843674)
+ Time : 4715
+ Selecting unit 52904408 at (4.124999,4.031226)
+ Make Unit UI 
+ Time : 5027
+ Time : 5308
+ Target(location (5.000000,0)) 
+ Removing 52904408 from location (4.000000,4.000000)
+ Adding unit 52904408 to location (4.000000,4.000000)
+ Time : 5621
+ Time : 5902
+ Selecting unit 0 at (5.093750,3.187499)
+ Time : 6215
+ Selecting unit 0 at (3.562500,7.593749)
+ Time : 6528
+ Time : 6808
+ Time : 7121
+ Removing 52904408 from location (4.000000,3.000000)
+ Adding unit 52904408 to location (4.000000,4.000000)
+ Time : 7402
+ Time : 7715
+ Time : 8027
+ Selecting unit 0 at (4.932982,-0.752887)
+ Time : 8309
+ Time : 8622
+ Time : 8903
+ Selecting unit 0 at (3.748894,1.470592)
+ Time : 9215
+ Removing 52904408 from location (4.000000,2.000000)
+ Adding unit 52904408 to location (4.000000,4.000000)
+ Selecting unit 0 at (4.187187,1.563020)
+ Time : 9527
+ Time : 9808
+ Selecting unit 0 at (5.156178,-0.593631)
+ Time : 10122
+ Time : 10402
+ Time : 10715
+ Time : 11028
+ Selecting unit 71840432 at (6.499998,-10.031248)
+ Make Unit UI 
+ Removing 52904408 from location (4.000000,1.000000)
+ Adding unit 52904408 to location (4.000000,4.000000)
+ Time : 11309
+ Selecting unit 71840432 at (6.187499,-9.968749)
+ Time : 11622
+ Target(location (12.000000,-7.000000)) 
+ Time : 11903
+ Removing 71840432 from location (6.000000,-10.000000)
+ Adding unit 71840432 to location (6.000000,-10.000000)
+ Time : 12215
+ Time : 12528
+ Time : 12809
+ Target(location (10.000000,1.000000)) 
+ Time : 13122
+ fire at (1.000000,-1.000000)
+ fire at (0,0)
+ fire at (1.000000,1.000000)
+ fire at (9.000000,-1.000000)
+ fire at (9.000000,0)
+ fire at (9.000000,1.000000)
+ Removing 52904408 from location (4.000000,0)
+ Adding unit 52904408 to location (4.000000,4.000000)
+ Time : 13403
+ Target(location (10.000000,-1.000000)) 
+ Time : 13716
+ Removing 71840432 from location (7.000000,-10.000000)
+ Adding unit 71840432 to location (6.000000,-10.000000)
+ Time : 14025
+ Time : 14306
+ Target(location (9.000000,-1.000000)) 
+ Time : 14618
+ Target(location (9.000000,-1.000000)) 
+ Time : 14930
+ Time : 15210
+ Time : 15523
+ Time : 15805
+ Removing 71840432 from location (7.000000,-9.000000)
+ Adding unit 71840432 to location (6.000000,-10.000000)
+ Time : 16120
+ fire at (8.000000,-2.000000)
+ fire at (9.000000,-2.000000)
+ Time : 16407
+ Time : 16715
+ Time : 17027
+ Time : 17308
+ Time : 17620
+ Removing 71840432 from location (7.000000,-8.000000)
+ Adding unit 71840432 to location (6.000000,-10.000000)
+ Time : 17901
+ Time : 18214
+ Time : 18526
+ Time : 18808
+ fire at (7.000000,-3.000000)
+ fire at (7.000000,-2.000000)
+ fire at (7.000000,-1.000000)
+ Time : 19120
+ Time : 19417
+ fire at (0,-2.000000)
+ fire at (1.000000,-2.000000)
+ fire at (-1.000000,-1.000000)
+ fire at (-1.000000,0)
+ fire at (8.000000,1.000000)
+ 

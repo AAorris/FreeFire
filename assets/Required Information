@@ -1,0 +1,72 @@
+Required Information
+{
+	Regions
+	Number of Fires ( Fire names )
+		Fire Identity (Location, parents[path], etc...)
+	Weather Status
+	Fire Behavior
+	Fire Size
+	Priorities at Risk
+	Assigned Resources
+		Type
+		Number
+		Equipment
+	Objective
+	Aircraft Location
+}
+
+Information Updates
+{
+	New Fires
+	Fire Arrival Timeline
+	Aircraft Availability
+	Number of open incidents
+}
+
+Design {
+	Fire {
+		-Fire appears in incidents.
+		-Fire creates new incidents by emitting sparks and embers.
+		-Sparks and embers(catalysts) travel around the fire with the wind.
+		-Catalysts rest on surrounding tiles. They may be eliminated by the weather or by fire fighters. If they survive, they will ignite the tile, causing a new fire.
+		-when an ignited fire is burning, it will pass off catalysts.
+		-Catalysts spread through the ground, the trees, or the air. Each one is prevented in a different way. Fires appear on the ground or in the air, are prevented similarly, and fought as long as the unit is capable of it.
+	}
+	Catalysts {
+		-Catalysts are objects that start fires.
+		-Catalysts are stored in tiles.
+		-Catalysts spread from fire sources to other tiles based on their *WindFactor*.
+		-Catalysts ignite over time(*IgniteTime*), and at that point will check if the tile contains the correct type of fuel(Designated as *Targets*). If that's the case, a fire will be started there.
+		-Before catalysts turn into fires, they can be put out by fire fighters based on their *FightTime*.
+	}
+	Tiles {
+		-Tiles hold the core data for the environment.
+		-Tiles can be made up of different things
+		-Each has a certain level of Burnability. Burnability affects how quickly catalysts turn into fires. (A Burnability of 0 means it cannot be burned)
+		-Fuel : Fuel is a fire parameter, that describes how long a fire can burn on that tile.
+		-Value : Value describes how much a certain tile is worth before being burned. Value is added as a strategic decision making element. A value of -1 will be a special value that describes and object of unmeasurable value. Burning these objects will result in a failure result in the simulation.
+		-TravelSpeed : Describes how much faster than normal moving things can pass through it. A lower value means that it takes longer to traverse. A value of 0 means that it's impossible to pass through the tile.
+
+	}
+	Weather {
+		-Wind blows north, south, east and west. This choice contrasts with using x and y. I think that this method is clearer for non mathematicians and programmers. A north wind blows to the north etc... and winds are added together to get the total wind. If there is a wind collision (north and south wind), then the sum is used, and the fact that there is a collision can create weather effects, like hurricanes around water.
+		-Rain is a weather effect. It checks if it should rain every *CheckTime* seconds, rains randomly between *ShortTime* and *LongTime*, and has an *ExtinguishChance* of putting out catalysts when they try to turn into fires. Rain only appears at a certain humidity, and while it is raining it displays a flag in the simulation that the program can use to know that it's raining.
+		-Lightning will strike every so often while it is raining. It will find a cell that contains one of the right targets, and when it strikes it will create a simulation event saying it has done so.
+		-Humidity and Temperature are values that affect the simulation. They are examples of defining parameter values. It can be static, or it can be random, with a min, max, average, and speed(how long it takes for the value to change by one unit)
+	}
+	Entities {
+		-Abilities reference an action, which enables them to do those things.
+		-Assets describe how to display the object. They are displayed based on the internal state of the unit. Abilities, when used by a unit will be what describes their state. Move will be a predefined state for units in motion, and Small will be an optional state for when objects are far away. There are different types of assets as well. I would plan to support these types :
+			Icon (still image)
+			Animation (spritesheet, one image made up of smaller cells to play in sequence)
+			PopoutIcon/PopoutAnimation (An asset that sits outside of the cell that it's on, like an air plane.)
+	}
+	Actions {
+		-Each action has a name. It should have times for preparing, doing, and completing the action. When the action is completed, and before setup begins, the action will send an event with its effects for the simulation to process. I plan to program these effects :
+			ExtinguishFire
+			ExtinguishSpark (Puts out catalysts before they turn into fires)
+			LightFire (Lights an isolated fire used to prevent crown fires from spreading)
+			FireBreak
+			WaterBomb (plane dropping water)
+	}
+}

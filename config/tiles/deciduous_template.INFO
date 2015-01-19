@@ -1,0 +1,18 @@
+template "Deciduous Tree" 
+{
+	
+	name "Basic leafy tree"
+	nickname "DEC"
+	icon "tree.png"
+	group "tree"
+	
+	; [property] [value]
+	properties {
+		fire_Speed 2.5
+	}
+
+	; [action] [action_time]
+	actions {
+	}
+
+}
