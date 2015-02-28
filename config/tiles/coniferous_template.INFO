@@ -1,0 +1,20 @@
+
+
+template "ConiferousTree" 
+{
+	
+	name "Basic conifer"
+	nickname "CON"
+	icon "pineTree.png"
+	group "tree"
+	
+	; [property] [value]
+	properties {
+		fire_Speed 2.5
+	}
+
+	; [action] [action_time]
+	actions {
+	}
+
+}
